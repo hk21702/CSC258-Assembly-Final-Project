@@ -33,7 +33,7 @@ frogColor: .word 0x4fa64f
 logColor: .word 0x742913
 waterColor: .word 0x26b7ff
 grassColor: .word 0xabd5ab
-roadColor: .word 0xc5bda7
+roadColor: .word 0x999999
 carColor: .word 0xdbbfd5
 safeColor: .word 0xFFBF00
 ## Positions (x, y) 32 x 32 display ##
@@ -168,6 +168,7 @@ drawRectangle:
 startRectLoop1:  
 	beq $t3, $t4, endRectLoop1
 	bge $t3, $t0, endRectLoop1 # Ensure xPos stays on screen
+	blt $t3, 0, endRectLoop2 # Don't attempt draw if x < 0
 ######################## Inner loop  
 	move $t1, $t2        # Initialize yPos counter  
 	move $t6, $t2        # Initialize bottommost position  
@@ -175,13 +176,14 @@ startRectLoop1:
 startRectLoop2:  
 	beq $t1, $t6, endRectLoop2  
 	bge $t1, $t7, endRectLoop2 # Ensure yPos stays on screen
+	blt $t1, 0, incRectY # Don't attempt draw if y < 0
   
 	move $a1, $t3
 	move $a2, $t1
 	jal coordinateToAddress # convert pos to address ($v0 is now address)
 	move $a3, $v0
 	jal setPixel
-  
+  	incRectY:
 	addi $t1, $t1, 1    # Increment yPos counter  
 	b startRectLoop2  
 endRectLoop2:  
