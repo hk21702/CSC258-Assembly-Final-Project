@@ -28,6 +28,9 @@
 #
 ####################################################################
 	.data
+## Scoring ##
+lives: .word 3
+score: .word 0
 ## Colors ##
 frogColor: .word 0x4fa64f
 logColor: .word 0x742913
@@ -36,18 +39,25 @@ grassColor: .word 0xabd5ab
 roadColor: .word 0x999999
 carColor: .word 0xdbbfd5
 safeColor: .word 0xFFBF00
-## Positions (x, y) 32 x 32 display ##
+## Dynamic Positions (x, y) 32 x 32 display ##
 ## Positiosn represent top right of sprite
-frogX: .word 3
-frogY: .word 3
-cars1: .space 128
-cars2: .space 128
-logs1: .space 128
-logs2: .space 128
+frogX: .word 16
+frogY: .word 28
+setOverlay: .space 4096 # 32 * 32 * 4
+entityOverlay: .space 4096
+## Fixed Positions
+cars1Region: .word 20
+cars2Region: .word 24
+logs1Region: .word 8
+logs2Region: .word 12
+regionHeight: .word 4
+frogWidth: .word 4
+frogHeight: .word 4
 ## Other ##
 displayAddress: .word 0x10008000 #Just use $gp
 displayWidth: .word 32 # Width of display
 displayHeight: .word 32 # Height of display
+msFrameDelay: .word 15 # milliSecs between frames (16.67 for 60 FPS assuming instant draw speed)
 ## Notes ##
 # $a0 is reserved for color
 ####################################################################
@@ -62,10 +72,105 @@ main:
 	move $a3, $v0
 	lw $a0, frogColor
 	jal setPixel
+
+	jal initRegions
+	jal initCars1
+	jal initCars2
+	jal initLogs1
+	jal initLogs2
 	
-	jal drawRegions
+	gameLoop:
+	lw $t8, 0xffff0000
+	beq $t8, 1, keyboardInput
+	jal clearEntityOverlay
 	jal drawFrog
+	jal draw
+
+	# Delay till next frame
+	li $v0, 32 
+	lw $a0, msFrameDelay
+	syscall 
+	j gameLoop
 	j Exit
+
+keyboardInput:
+ 	addi $sp, $sp, -4 
+ 	sw $ra, 0($sp) # Push $ra to stack
+
+	lw $t2, 0xffff0004
+	
+	beq $t2, 0x77, respondW
+	beq $t2, 0x61, respondA
+	beq $t2, 0x73, respondS
+	beq $t2, 0x64, respondD
+
+	respondW:
+
+		la $t0, frogY
+		lw $t4, 0($t0)
+		li $t1, 3 
+		ble $t4, $t1, wExit
+		addi $t4, $t4, -4
+		sw $t4, 0($t0)
+		wExit:
+		lw $ra,  0($sp) 
+		addi $sp, $sp, 4
+		jr $ra	
+
+	respondA:
+
+		la $t0, frogX
+		lw $t4, 0($t0)
+		li $t1, 3 
+		ble $t4, $t1, aExit
+		addi $t4, $t4, -4
+		sw $t4, 0($t0)
+		aExit:
+		lw $ra,  0($sp) 
+		addi $sp, $sp, 4
+		jr $ra
+
+	respondS:
+
+		la $t0, frogY
+		lw $t4, 0($t0)
+		lw $t1, displayHeight
+		lw $t2, frogHeight
+		sll $t2, $t2, 1
+		subi $t2, $t2, 1
+		sub $t1, $t1, $t2
+		bge $t4, $t1, sExit
+		addi $t4, $t4, 4
+		sw $t4, 0($t0)
+		sExit:
+		lw $ra,  0($sp) 
+		addi $sp, $sp, 4
+		jr $ra
+
+	respondD:
+
+		la $t0, frogX
+		lw $t4, 0($t0)
+		lw $t1, displayWidth
+		lw $t2, frogWidth
+		sll $t2, $t2, 1
+		subi $t2, $t2, 1
+		sub $t1, $t1, $t2
+		bge $t4, $t1, dExit
+		addi $t4, $t4, 4
+		sw $t4, 0($t0)
+		dExit:
+		lw $ra,  0($sp) 
+		addi $sp, $sp, 4
+		jr $ra
+
+
+	# Load $ra from stack
+	lw $ra,  0($sp) 
+	addi $sp, $sp, 4
+	jr $ra
+
+	
 
 # void setPixel (
 	# set the pixel value at the position address to color
@@ -107,92 +212,68 @@ drawFrog:
 	# Column 1
 	move $a1, $t1
 	move $a2, $t2
-	jal coordinateToAddress # convert pos to address ($v0 is now address)
-	move $a3, $v0
-	jal setPixel
+	jal setAtEntityPos
 	
 	addi $t2, $t2, 1
 	move $a1, $t1
 	move $a2, $t2
-	jal coordinateToAddress # convert pos to address ($v0 is now address)
-	move $a3, $v0
-	jal setPixel
+	jal setAtEntityPos
 
 	addi $t2, $t2, 2
 	move $a1, $t1
 	move $a2, $t2
-	jal coordinateToAddress # convert pos to address ($v0 is now address)
-	move $a3, $v0
-	jal setPixel
+	jal setAtEntityPos
 
 	# Column 2
 	addi $t1, $t1, 1
 
 	move $a1, $t1
 	move $a2, $t2
-	jal coordinateToAddress # convert pos to address ($v0 is now address)
-	move $a3, $v0
-	jal setPixel
-	
-	addi $t2, $t2, -1
-	move $a1, $t1
-	move $a2, $t2
-	jal coordinateToAddress # convert pos to address ($v0 is now address)
-	move $a3, $v0
-	jal setPixel
+	jal setAtEntityPos
 
 	addi $t2, $t2, -1
 	move $a1, $t1
 	move $a2, $t2
-	jal coordinateToAddress # convert pos to address ($v0 is now address)
-	move $a3, $v0
-	jal setPixel
+	jal setAtEntityPos
+
+	addi $t2, $t2, -1
+	move $a1, $t1
+	move $a2, $t2
+	jal setAtEntityPos
 
 	# Column 3
 	addi $t1, $t1, 1
 
 	move $a1, $t1
 	move $a2, $t2
-	jal coordinateToAddress # convert pos to address ($v0 is now address)
-	move $a3, $v0
-	jal setPixel
-	
-	addi $t2, $t2, 1
-	move $a1, $t1
-	move $a2, $t2
-	jal coordinateToAddress # convert pos to address ($v0 is now address)
-	move $a3, $v0
-	jal setPixel
+	jal setAtEntityPos
 
 	addi $t2, $t2, 1
 	move $a1, $t1
 	move $a2, $t2
-	jal coordinateToAddress # convert pos to address ($v0 is now address)
-	move $a3, $v0
-	jal setPixel
+	jal setAtEntityPos
+
+	addi $t2, $t2, 1
+	move $a1, $t1
+	move $a2, $t2
+	jal setAtEntityPos
 
 	# Column 4
 	addi $t1, $t1, 1
 
 	move $a1, $t1
 	move $a2, $t2
-	jal coordinateToAddress # convert pos to address ($v0 is now address)
-	move $a3, $v0
-	jal setPixel
-	
+	jal setAtEntityPos
+
 	addi $t2, $t2, -2
 	move $a1, $t1
 	move $a2, $t2
-	jal coordinateToAddress # convert pos to address ($v0 is now address)
-	move $a3, $v0
-	jal setPixel
+	jal setAtEntityPos
 
 	addi $t2, $t2, -1
 	move $a1, $t1
 	move $a2, $t2
-	jal coordinateToAddress # convert pos to address ($v0 is now address)
-	move $a3, $v0
-	jal setPixel
+	jal setAtEntityPos
 
 # Load $ra from stack
 	lw $ra,  0($sp) 
@@ -200,7 +281,7 @@ drawFrog:
 	jr $ra
 
 
-drawRegions:
+initRegions:
 	# Save $ra to stack
  	addi $sp, $sp, -4 
  	sw $ra, 0($sp) # Push $ra to stack
@@ -211,7 +292,7 @@ drawRegions:
 	lw, $a3, displayWidth # Set width
 	li, $t0, 4 # Set height
 	sw, $t0, 16($sp) # Load height into stack
-	jal drawRectangle
+	jal drawSetRect
 ############## Draw Road
 	lw $a0, roadColor # Load grass color
 	li $a1, 0 # Set top left x
@@ -219,7 +300,7 @@ drawRegions:
 	lw, $a3, displayWidth # Set width
 	li, $t0, 8 # Set height
 	sw, $t0, 16($sp) # Load height into stack
-	jal drawRectangle
+	jal drawSetRect
 ############## Draw Safe Region
 	lw $a0, safeColor # Load grass color
 	li $a1, 0 # Set top left x
@@ -227,7 +308,7 @@ drawRegions:
 	lw, $a3, displayWidth # Set width
 	li, $t0, 4 # Set height
 	sw, $t0, 16($sp) # Load height into stack
-	jal drawRectangle
+	jal drawSetRect
 ############## Draw River Region
 	lw $a0, waterColor # Load grass color
 	li $a1, 0 # Set top left x
@@ -235,7 +316,7 @@ drawRegions:
 	lw, $a3, displayWidth # Set width
 	li, $t0, 8 # Set height
 	sw, $t0, 16($sp) # Load height into stack
-	jal drawRectangle
+	jal drawSetRect
 ############## Draw Goal Region
 	lw $a0, grassColor # Load grass color
 	li $a1, 0 # Set top left x
@@ -243,13 +324,174 @@ drawRegions:
 	lw, $a3, displayWidth # Set width
 	li, $t0, 8 # Set height
 	sw, $t0, 16($sp) # Load height into stack
-	jal drawRectangle
+	jal drawSetRect
 # Load $ra from stack
 	lw $ra,  0($sp) 
 	addi $sp, $sp, 4
 	jr $ra
 
-# void drawRectangle
+# void draw
+	# Draw
+	#
+	# returns none
+draw:
+	lw $t8, displayWidth # Load displayWidth
+	lw $t7, displayHeight # Load displayHeight
+ 	
+ 	addi $sp, $sp, -4 
+ 	sw $ra, 0($sp) # Push $ra to stack
+ 		
+	li $t1, 0         # Initialize xPos counter
+startDrawLoop1:  
+	beq $t1, $t8, endDrawLoop1
+######################## Inner loop  
+	li $t2, 0        # Initialize yPos counter  
+startDrawLoop2:  
+	beq $t2, $t7, endDrawLoop2  
+	
+	move $a1, $t1
+	move $a2, $t2
+
+	jal getAtOverPos
+	move $a0, $v0
+	
+	move $a1, $t1
+	move $a2, $t2
+	jal getAtEntityPos
+	beq $v0, $0, drawSkip
+	move $a0, $v0 # Override color
+
+	drawSkip:
+	move $a1, $t1
+	move $a2, $t2
+	jal coordinateToAddress # convert pos to address ($v0 is now address)
+	move $a3, $v0
+	jal setPixel
+  	incRectY:
+	addi $t2, $t2, 1    # Increment yPos counter  
+	b startDrawLoop2  
+endDrawLoop2:  
+######################## Inner loop  
+	addi $t1, $t1, 1    # Increment xPos counter  
+	b startDrawLoop1
+endDrawLoop1:
+	lw $ra,  0($sp) # Load $ra from stack
+	addi $sp, $sp, 4
+	
+	jr $ra # Exit function
+####################################################################
+
+initCars1:
+ 	addi $sp, $sp, -4 
+ 	sw $ra, 0($sp) # Push $ra to stack
+
+	lw $a0, carColor
+
+	li $a1, 0 # xPos
+	lw $a2, cars1Region # yPos
+	li $a3, 8
+	li, $t0, 4 # Set height
+	sw, $t0, 16($sp) # Load height into stack
+	jal drawSetRect
+
+	li $a1, 16 # xPos
+	lw $a2, cars1Region # yPos
+	li $a3, 8
+	li, $t0, 4 # Set height
+	sw, $t0, 16($sp) # Load height into stack
+	jal drawSetRect
+	
+	lw $ra,  0($sp) # Load $ra from stack
+	addi $sp, $sp, 4
+	jr $ra
+
+initCars2:
+ 	addi $sp, $sp, -4 
+ 	sw $ra, 0($sp) # Push $ra to stack
+
+	lw $a0, carColor
+
+	li $a1, 0 # xPos
+	lw $a2, cars2Region # yPos
+	li $a3, 4
+	li, $t0, 4 # Set height
+	sw, $t0, 16($sp) # Load height into stack
+	jal drawSetRect
+
+	li $a1, 12 # xPos
+	lw $a2, cars2Region # yPos
+	li $a3, 8
+	li, $t0, 4 # Set height
+	sw, $t0, 16($sp) # Load height into stack
+	jal drawSetRect
+
+	li $a1, 28 # xPos
+	lw $a2, cars2Region # yPos
+	li $a3, 4
+	li, $t0, 4 # Set height
+	sw, $t0, 16($sp) # Load height into stack
+	jal drawSetRect
+	
+	lw $ra,  0($sp) # Load $ra from stack
+	addi $sp, $sp, 4
+	jr $ra
+
+initLogs1:
+ 	addi $sp, $sp, -4 
+ 	sw $ra, 0($sp) # Push $ra to stack
+
+	lw $a0, logColor
+
+	li $a1, 0 # xPos
+	lw $a2, logs1Region # yPos
+	li $a3, 8
+	li, $t0, 4 # Set height
+	sw, $t0, 16($sp) # Load height into stack
+	jal drawSetRect
+
+	li $a1, 16 # xPos
+	lw $a2, logs1Region # yPos
+	li $a3, 8
+	li, $t0, 4 # Set height
+	sw, $t0, 16($sp) # Load height into stack
+	jal drawSetRect
+	
+	lw $ra,  0($sp) # Load $ra from stack
+	addi $sp, $sp, 4
+	jr $ra
+
+initLogs2:
+ 	addi $sp, $sp, -4 
+ 	sw $ra, 0($sp) # Push $ra to stack
+
+	lw $a0, logColor
+
+	li $a1, 0 # xPos
+	lw $a2, logs2Region # yPos
+	li $a3, 4
+	li, $t0, 4 # Set height
+	sw, $t0, 16($sp) # Load height into stack
+	jal drawSetRect
+
+	li $a1, 12 # xPos
+	lw $a2, logs2Region # yPos
+	li $a3, 8
+	li, $t0, 4 # Set height
+	sw, $t0, 16($sp) # Load height into stack
+	jal drawSetRect
+
+	li $a1, 28 # xPos
+	lw $a2, logs2Region # yPos
+	li $a3, 4
+	li, $t0, 4 # Set height
+	sw, $t0, 16($sp) # Load height into stack
+	jal drawSetRect
+	
+	lw $ra,  0($sp) # Load $ra from stack
+	addi $sp, $sp, 4
+	jr $ra
+
+# void drawSetRect
 	# Draw rectangle
 	#
 	# $a0: color
@@ -258,53 +500,173 @@ drawRegions:
 	# $a3: width
 	# $16($sp): height
 	# returns none
-drawRectangle:
+drawSetRect:
 	lw $t5, 16($sp) # Load height from stack
-	lw $t0, displayWidth # Load displayWidth
+	lw $t8, displayWidth # Load displayWidth
 	lw $t7, displayHeight # Load displayHeight
  	
  	addi $sp, $sp, -4 
  	sw $ra, 0($sp) # Push $ra to stack
  	
+	move $t0, $a0 # Save base color
 	move $t1, $a1 # Save fixed initial xPos
 	move $t2, $a2 # Save fixed initial yPos
 	
 	move $t3, $t1        # Initialize xPos counter
 	move $t4, $t1        # Initialize rightmost position  
 	add $t4, $t4, $a3
-startRectLoop1:  
-	beq $t3, $t4, endRectLoop1
-	bge $t3, $t0, endRectLoop1 # Ensure xPos stays on screen
-	blt $t3, 0, endRectLoop2 # Don't attempt draw if x < 0
+startSetRectLoop1:  
+	beq $t3, $t4, endSetRectLoop1
+	bge $t3, $t8, endSetRectLoop1 # Ensure xPos stays on screen
+	blt $t3, 0, endSetRectLoop2 # Don't attempt draw if x < 0
 ######################## Inner loop  
 	move $t1, $t2        # Initialize yPos counter  
 	move $t6, $t2        # Initialize bottommost position  
 	add $t6, $t6, $t5
-startRectLoop2:  
-	beq $t1, $t6, endRectLoop2  
-	bge $t1, $t7, endRectLoop2 # Ensure yPos stays on screen
-	blt $t1, 0, incRectY # Don't attempt draw if y < 0
-  
+startSetRectLoop2:  
+	beq $t1, $t6, endSetRectLoop2  
+	bge $t1, $t7, endSetRectLoop2 # Ensure yPos stays on screen
+	blt $t1, 0, incOvRectY # Don't attempt draw if y < 0
+	
+	move $a0, $t0
 	move $a1, $t3
 	move $a2, $t1
-	jal coordinateToAddress # convert pos to address ($v0 is now address)
-	move $a3, $v0
-	jal setPixel
-  	incRectY:
+	jal setAtOverPos
+
+  	incOvRectY:
 	addi $t1, $t1, 1    # Increment yPos counter  
-	b startRectLoop2  
-endRectLoop2:  
+	b startSetRectLoop2  
+endSetRectLoop2:  
 ######################## Inner loop  
 	addi $t3, $t3, 1    # Increment xPos counter  
-	b startRectLoop1
-endRectLoop1:
+	b startSetRectLoop1
+endSetRectLoop1:
 	lw $ra,  0($sp) # Load $ra from stack
 	addi $sp, $sp, 4
 	
 	jr $ra # Exit function
 
+#
+# $a1 xPos
+# $a2 yPos
+getAtOverPos:
+	la $v0, setOverlay
+	sll $a1, $a1, 2
+	sll $a2, $a2, 7
+	add $a1, $a1, $a2
+	add $v0, $a1, $v0
+	lw $v0, 0($v0)
+	jr $ra # Exit function
 
-####################################################################
+# $a0 word to set at pos
+# $a1 xPos
+# $a2 yPos
+setAtOverPos:
+	la $v0, setOverlay
+	sll $a1, $a1, 2
+	sll $a2 $a2, 7
+	add $a1, $a1, $a2
+	add $v0, $a1, $v0
+	sw $a0, 0($v0)
+	jr $ra
+
+#
+# $a1 xPos
+# $a2 yPos
+getAtEntityPos:
+	la $v0, entityOverlay
+	sll $a1, $a1, 2
+	sll $a2, $a2, 7
+	add $a1, $a1, $a2
+	add $v0, $a1, $v0
+	lw $v0, 0($v0)
+	jr $ra # Exit function
+
+# $a0 word to set at pos
+# $a1 xPos
+# $a2 yPos
+setAtEntityPos:
+	la $v0, entityOverlay
+	sll $a1, $a1, 2
+	sll $a2 $a2, 7
+	add $a1, $a1, $a2
+	add $v0, $a1, $v0
+	sw $a0, 0($v0)
+	jr $ra
+
+clearEntityOverlay:
+	addi $sp, $sp, -4 
+ 	sw $ra, 0($sp) # Push $ra to stack
+	
+	la $a0, ($0)
+	li $a1, 0
+	li $a2, 0
+	lw $a3, displayWidth
+	lw $t1, displayHeight
+	sw, $t0, 16($sp)
+	jal drawEntityRect
+
+	lw $ra,  0($sp) # Load $ra from stack
+	addi $sp, $sp, 4
+	jr $ra # Exit function
+
+
+# void drawEntityRect
+	# Draw rectangle
+	#
+	# $a0: color
+	# $a1: xPos (Top left corner)
+	# $a2: yPos (Top left corner)
+	# $a3: width
+	# $16($sp): height
+	# returns none
+drawEntityRect:
+	lw $t5, 16($sp) # Load height from stack
+	lw $t8, displayWidth # Load displayWidth
+	lw $t7, displayHeight # Load displayHeight
+ 	
+ 	addi $sp, $sp, -4 
+ 	sw $ra, 0($sp) # Push $ra to stack
+ 	
+	move $t0, $a0 # Save base color
+	move $t1, $a1 # Save fixed initial xPos
+	move $t2, $a2 # Save fixed initial yPos
+	
+	move $t3, $t1        # Initialize xPos counter
+	move $t4, $t1        # Initialize rightmost position  
+	add $t4, $t4, $a3
+startEntityRectLoop1:  
+	beq $t3, $t4, endEntityRectLoop1
+	bge $t3, $t8, endEntityRectLoop1 # Ensure xPos stays on screen
+	blt $t3, 0, endEntityRectLoop2 # Don't attempt draw if x < 0
+######################## Inner loop  
+	move $t1, $t2        # Initialize yPos counter  
+	move $t6, $t2        # Initialize bottommost position  
+	add $t6, $t6, $t5
+startEntityRectLoop2:  
+	beq $t1, $t6, endEntityRectLoop2  
+	bge $t1, $t7, endEntityRectLoop2 # Ensure yPos stays on screen
+	blt $t1, 0, incSetRectY # Don't attempt draw if y < 0
+	
+	move $a0, $t0
+	move $a1, $t3
+	move $a2, $t1
+	jal setAtEntityPos
+
+  	incSetRectY:
+	addi $t1, $t1, 1    # Increment yPos counter  
+	b startEntityRectLoop2  
+endEntityRectLoop2:  
+######################## Inner loop  
+	addi $t3, $t3, 1    # Increment xPos counter  
+	b startEntityRectLoop1
+endEntityRectLoop1:
+	lw $ra,  0($sp) # Load $ra from stack
+	addi $sp, $sp, 4
+	jr $ra # Exit function
+
+
+
 Exit:
 	li $v0, 10 # terminate the program
 	syscall
