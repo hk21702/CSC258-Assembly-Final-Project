@@ -40,6 +40,10 @@ safeColor: .word 0xFFBF00
 ## Positiosn represent top right of sprite
 frogX: .word 3
 frogY: .word 3
+cars1: .space 128
+cars2: .space 128
+logs1: .space 128
+logs2: .space 128
 ## Other ##
 displayAddress: .word 0x10008000 #Just use $gp
 displayWidth: .word 32 # Width of display
