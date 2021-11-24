@@ -38,8 +38,8 @@ carColor: .word 0xdbbfd5
 safeColor: .word 0xFFBF00
 ## Positions (x, y) 32 x 32 display ##
 ## Positiosn represent top right of sprite
-frogX: .word 1
-frogY: .word 2
+frogX: .word 3
+frogY: .word 3
 ## Other ##
 displayAddress: .word 0x10008000 #Just use $gp
 displayWidth: .word 32 # Width of display
@@ -49,19 +49,18 @@ displayHeight: .word 32 # Height of display
 ####################################################################
 	.text   
 main:
-	lw $t0, frogColor
 
 	sw $t0, 0($gp)
 	sw $t0, 4($gp)
 	
-	lw $a1, frogX
-	lw $a2, frogY
+
 	jal coordinateToAddress
 	move $a3, $v0
 	lw $a0, frogColor
 	jal setPixel
 	
 	jal drawRegions
+	jal drawFrog
 	j Exit
 
 # void setPixel (
@@ -91,15 +90,116 @@ coordinateToAddress:
 
 # 
 #
-# $a1: xPos
-# $a2: yPos
 drawFrog:
-	#
+# Save $ra to stack
+ 	addi $sp, $sp, -4 
+ 	sw $ra, 0($sp) # Push $ra to stack
+	
+	lw $a0, frogColor # Load color
 
-	jr $ra # return $v0
+	lw $t1, frogX # Load frog top left pos
+	lw $t2, frogY
+	
+	# Column 1
+	move $a1, $t1
+	move $a2, $t2
+	jal coordinateToAddress # convert pos to address ($v0 is now address)
+	move $a3, $v0
+	jal setPixel
+	
+	addi $t2, $t2, 1
+	move $a1, $t1
+	move $a2, $t2
+	jal coordinateToAddress # convert pos to address ($v0 is now address)
+	move $a3, $v0
+	jal setPixel
+
+	addi $t2, $t2, 2
+	move $a1, $t1
+	move $a2, $t2
+	jal coordinateToAddress # convert pos to address ($v0 is now address)
+	move $a3, $v0
+	jal setPixel
+
+	# Column 2
+	addi $t1, $t1, 1
+
+	move $a1, $t1
+	move $a2, $t2
+	jal coordinateToAddress # convert pos to address ($v0 is now address)
+	move $a3, $v0
+	jal setPixel
+	
+	addi $t2, $t2, -1
+	move $a1, $t1
+	move $a2, $t2
+	jal coordinateToAddress # convert pos to address ($v0 is now address)
+	move $a3, $v0
+	jal setPixel
+
+	addi $t2, $t2, -1
+	move $a1, $t1
+	move $a2, $t2
+	jal coordinateToAddress # convert pos to address ($v0 is now address)
+	move $a3, $v0
+	jal setPixel
+
+	# Column 3
+	addi $t1, $t1, 1
+
+	move $a1, $t1
+	move $a2, $t2
+	jal coordinateToAddress # convert pos to address ($v0 is now address)
+	move $a3, $v0
+	jal setPixel
+	
+	addi $t2, $t2, 1
+	move $a1, $t1
+	move $a2, $t2
+	jal coordinateToAddress # convert pos to address ($v0 is now address)
+	move $a3, $v0
+	jal setPixel
+
+	addi $t2, $t2, 1
+	move $a1, $t1
+	move $a2, $t2
+	jal coordinateToAddress # convert pos to address ($v0 is now address)
+	move $a3, $v0
+	jal setPixel
+
+	# Column 4
+	addi $t1, $t1, 1
+
+	move $a1, $t1
+	move $a2, $t2
+	jal coordinateToAddress # convert pos to address ($v0 is now address)
+	move $a3, $v0
+	jal setPixel
+	
+	addi $t2, $t2, -2
+	move $a1, $t1
+	move $a2, $t2
+	jal coordinateToAddress # convert pos to address ($v0 is now address)
+	move $a3, $v0
+	jal setPixel
+
+	addi $t2, $t2, -1
+	move $a1, $t1
+	move $a2, $t2
+	jal coordinateToAddress # convert pos to address ($v0 is now address)
+	move $a3, $v0
+	jal setPixel
+
+# Load $ra from stack
+	lw $ra,  0($sp) 
+	addi $sp, $sp, 4
+	jr $ra
 
 
 drawRegions:
+	# Save $ra to stack
+ 	addi $sp, $sp, -4 
+ 	sw $ra, 0($sp) # Push $ra to stack
 ############## Draw Start Region
 	lw $a0, grassColor # Load grass color
 	li $a1, 0 # Set top left x
@@ -140,6 +240,9 @@ drawRegions:
 	li, $t0, 8 # Set height
 	sw, $t0, 16($sp) # Load height into stack
 	jal drawRectangle
+# Load $ra from stack
+	lw $ra,  0($sp) 
+	addi $sp, $sp, 4
 	jr $ra
 
 # void drawRectangle
