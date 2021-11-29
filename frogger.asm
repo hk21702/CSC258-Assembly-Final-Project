@@ -14,11 +14,11 @@
 #
 # Which milestone is reached in this submission?
 # (See the assignment handout for descriptions of the milestones)
-# - Milestone 1/2/3/4/5 (choose the one the applies)
+# - Milestone 2
 #
 # Which approved additional features have been implemented?
 # (See the assignment handout for the list of additional features)
-# 1. (fill in the feature, if any)
+# 1. Randomized hazard interval and size (To be added to handout)
 # 2. (fill in the feature, if any)
 # 3. (fill in the feature, if any)
 # ... (add more if necessary)
@@ -54,8 +54,8 @@ regionHeight: .word 4
 frogWidth: .word 4
 frogHeight: .word 4
 ## 
-car1Counter: .word 2
-car2Counter: .word 4
+cars1Counter: .word 2
+cars2Counter: .word 4
 logs1Counter: .word 2
 logs2Counter: .word 4
 cars1State: .space 4
@@ -64,8 +64,8 @@ logs1State: .space 4
 logs2State: .space 4
 frameDelay: .word 25
 frameCounter: .word 0
-shiftIntervalMax: .word 8
-shiftIntervalMin: .word 4
+shiftIntervalMax: .word 5
+shiftIntervalMin: .word 2
 ## Other ##
 displayAddress: .word 0x10008000 #Just use $gp
 displayWidth: .word 32 # Width of display
@@ -102,6 +102,8 @@ main:
 
 	jal shiftLogs1
 	jal shiftLogs2
+	jal shiftCars1
+	jal shiftCars2
 
 	gameLoopEnd:
 	lw $t8, 0xffff0000
@@ -728,6 +730,7 @@ shiftLogs1:
 	lw $a1, shiftIntervalMax
 	lw $a2, shiftIntervalMin
 	jal getRandomNum
+	sll $v0, $v0, 1 # Multiply by 2
 	sw $v0, 0($t0) # Set new interval
 
 	#State flip
@@ -790,6 +793,7 @@ shiftLogs2:
 	lw $a1, shiftIntervalMax
 	lw $a2, shiftIntervalMin
 	jal getRandomNum
+	sll $v0, $v0, 1 # Multiply by 2
 	sw $v0, 0($t0) # Set new interval
 
 	#State flip
@@ -888,12 +892,131 @@ flipCarState:
 	addi $sp, $sp, 4
 	jr $ra # Exit function
 
+shiftCars1:
+	addi $sp, $sp, -4 
+ 	sw $ra, 0($sp) # Push $ra to stack
 
+	la $t0, cars1Counter # Load counter
+	lw $t1 0($t0)
+	addi $t1, $t1, -1
+	sw $t1, 0($t0)
+	# If no more, reset
+	bgt $t1, 0, shiftCar1
 
+	lw $a1, shiftIntervalMax
+	lw $a2, shiftIntervalMin
+	jal getRandomNum
+	sll $v0, $v0, 1 # Multiply by 2
+	sw $v0, 0($t0) # Set new interval
 
+	#State flip
+	la $a0, cars1State # Load state address
+	jal flipCarState
 
-##
+	shiftCar1:
+	# Loop init
+	li $t0, 0 # Load xPos counter
+	
+	# Loop start
+	shiftCar1Start:
+	lw $t1, displayWidth
+	addi $t1, $t1, -1
+	
+	beq $t0, $t1, shiftCar1End 
+	addi $a1, $t0, 1 # Sample xPos
+	lw $a2, cars1Region # Sample yPos
+	jal getAtOverPos
+	
+	move $a0 ,$v0 # Set color
+	move $a1, $t0 # Set xPos
+	lw $a2, cars1Region # Set yPos
+	li $a3, 1 # Set width
+	li, $t2, 4 # Set height
 
+	addi $sp, $sp, -4 
+ 	sw $t0, 0($sp) # Push $t0 to stack
+	sw, $t2, 16($sp) # Load height into stack
+	jal drawSetRect
+	lw $t0,  0($sp) # Load $t0 from stack
+	addi $sp, $sp, 4
+
+	addi $t0, $t0, 1 # Increment counter
+	j shiftCar1Start
+	shiftCar1End:
+	lw $a0, cars1State # Set color
+	li $a1, 31 # Set xPos
+	lw $a2, cars1Region # Set yPos
+	li $a3, 1 # Set width
+	li, $t2, 4 # Set height
+	sw, $t2, 16($sp) # Load height into stack
+	jal drawSetRect
+
+	lw $ra,  0($sp) # Load $ra from stack
+	addi $sp, $sp, 4
+	jr $ra # Exit function
+
+shiftCars2:
+	addi $sp, $sp, -4 
+ 	sw $ra, 0($sp) # Push $ra to stack
+
+	la $t0, cars2Counter # Load counter
+	lw $t1 0($t0) # Increment counter down
+	addi $t1, $t1, -1
+	sw $t1, 0($t0)
+	# If no more, reset
+	bgt $t1, 0, shiftCar2
+
+	lw $a1, shiftIntervalMax
+	lw $a2, shiftIntervalMin
+	jal getRandomNum
+	sll $v0, $v0, 1 # Multiply by 2
+	sw $v0, 0($t0) # Set new interval
+
+	#State flip
+	la $a0, cars2State # Load state address
+	jal flipCarState
+
+	shiftCar2:
+	# Loop init
+	lw $t0, displayWidth  # Load xPos counter
+	addi $t0 $t0, -1
+
+	# Loop start
+	shiftCar2Start:
+	li $t1, 0
+	
+	beq $t0, $t1, shiftCar2End 
+	addi $a1, $t0, -1 # Sample xPos
+	lw $a2, cars2Region # Sample yPos
+	jal getAtOverPos
+	
+	move $a0 ,$v0 # Set color
+	move $a1, $t0 # Set xPos
+	lw $a2, cars2Region # Set yPos
+	li $a3, 1 # Set width
+	li, $t2, 4 # Set height
+
+	addi $sp, $sp, -4 
+ 	sw $t0, 0($sp) # Push $t0 to stack
+	sw, $t2, 16($sp) # Load height into stack
+	jal drawSetRect
+	lw $t0,  0($sp) # Load $t0 from stack
+	addi $sp, $sp, 4
+
+	addi $t0, $t0, -1 # Increment counter
+	j shiftCar2Start
+	shiftCar2End:
+	lw $a0, cars2State # Set color
+	li $a1, 0 # Set xPos
+	lw $a2, cars2Region # Set yPos
+	li $a3, 1 # Set width
+	li, $t2, 4 # Set height
+	sw, $t2, 16($sp) # Load height into stack
+	jal drawSetRect
+
+	lw $ra,  0($sp) # Load $ra from stack
+	addi $sp, $sp, 4
+	jr $ra # Exit function
 
 # $a1 -> upperbound
 # $a2 -> lowerbound
