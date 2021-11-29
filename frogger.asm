@@ -53,6 +53,19 @@ logs2Region: .word 12
 regionHeight: .word 4
 frogWidth: .word 4
 frogHeight: .word 4
+## 
+car1Counter: .word 2
+car2Counter: .word 4
+logs1Counter: .word 2
+logs2Counter: .word 4
+cars1State: .space 4
+cars2State: .space 4
+logs1State: .space 4
+logs2State: .space 4
+frameDelay: .word 25
+frameCounter: .word 0
+shiftIntervalMax: .word 8
+shiftIntervalMin: .word 4
 ## Other ##
 displayAddress: .word 0x10008000 #Just use $gp
 displayWidth: .word 32 # Width of display
@@ -63,23 +76,34 @@ msFrameDelay: .word 15 # milliSecs between frames (16.67 for 60 FPS assuming ins
 ####################################################################
 	.text   
 main:
-
-	sw $t0, 0($gp)
-	sw $t0, 4($gp)
-	
-
-	jal coordinateToAddress
-	move $a3, $v0
-	lw $a0, frogColor
-	jal setPixel
-
 	jal initRegions
 	jal initCars1
 	jal initCars2
 	jal initLogs1
 	jal initLogs2
+	jal initShifters
 	
 	gameLoop:
+	# Tick framecounter
+	la $t0, frameCounter
+	lw $t4, 0($t0)
+	addi $t4, $t4, 1
+	sw $t4, 0($t0)
+
+	# Check if hazard change appropriate
+	lw $t0, frameCounter
+	lw $t1, frameDelay
+	blt $t0, $t1, gameLoopEnd
+	### Update Hazards ###
+	# Reset frame counter
+	la $t0, frameCounter
+	li $t4, 0
+	sw $t4, 0($t0)
+
+	jal shiftLogs1
+	jal shiftLogs2
+
+	gameLoopEnd:
 	lw $t8, 0xffff0000
 	beq $t8, 1, keyboardInput
 	jal clearEntityOverlay
@@ -665,6 +689,221 @@ endEntityRectLoop1:
 	addi $sp, $sp, 4
 	jr $ra # Exit function
 
+initShifters:
+	lw $t9, waterColor
+	lw $t8, logColor
+	lw $t7, roadColor
+	lw $t6, carColor
+
+	### Set region states ###
+	# logs1
+	la $t0, logs1State
+	sw $t9, 0($t0)
+
+	# logs2
+	la $t0, logs2State
+	sw $t8, 0($t0)
+
+	# cars1
+	la $t0, cars1State
+	sw $t7, 0($t0)
+
+		# cars1
+	la $t0, cars2State
+	sw $t6, 0($t0)
+
+jr $ra # Exit function
+
+shiftLogs1:
+	addi $sp, $sp, -4 
+ 	sw $ra, 0($sp) # Push $ra to stack
+
+	la $t0, logs1Counter # Load counter
+	lw $t1 0($t0)
+	addi $t1, $t1, -1
+	sw $t1, 0($t0)
+	# If no more, reset
+	bgt $t1, 0, shiftLog1
+
+	lw $a1, shiftIntervalMax
+	lw $a2, shiftIntervalMin
+	jal getRandomNum
+	sw $v0, 0($t0) # Set new interval
+
+	#State flip
+	la $a0, logs1State # Load state address
+	jal flipLogState
+
+	shiftLog1:
+	# Loop init
+	li $t0, 0 # Load xPos counter
+	
+	# Loop start
+	shiftLog1Start:
+	lw $t1, displayWidth
+	addi $t1, $t1, -1
+	
+	beq $t0, $t1, shiftLog1End 
+	addi $a1, $t0, 1 # Sample xPos
+	lw $a2, logs1Region # Sample yPos
+	jal getAtOverPos
+	
+	move $a0 ,$v0 # Set color
+	move $a1, $t0 # Set xPos
+	lw $a2, logs1Region # Set yPos
+	li $a3, 1 # Set width
+	li, $t2, 4 # Set height
+
+	addi $sp, $sp, -4 
+ 	sw $t0, 0($sp) # Push $t0 to stack
+	sw, $t2, 16($sp) # Load height into stack
+	jal drawSetRect
+	lw $t0,  0($sp) # Load $t0 from stack
+	addi $sp, $sp, 4
+
+	addi $t0, $t0, 1 # Increment counter
+	j shiftLog1Start
+	shiftLog1End:
+	lw $a0, logs1State # Set color
+	li $a1, 31 # Set xPos
+	lw $a2, logs1Region # Set yPos
+	li $a3, 1 # Set width
+	li, $t2, 4 # Set height
+	sw, $t2, 16($sp) # Load height into stack
+	jal drawSetRect
+
+	lw $ra,  0($sp) # Load $ra from stack
+	addi $sp, $sp, 4
+	jr $ra # Exit function
+
+shiftLogs2:
+	addi $sp, $sp, -4 
+ 	sw $ra, 0($sp) # Push $ra to stack
+
+	la $t0, logs2Counter # Load counter
+	lw $t1 0($t0) # Increment counter down
+	addi $t1, $t1, -1
+	sw $t1, 0($t0)
+	# If no more, reset
+	bgt $t1, 0, shiftLog2
+
+	lw $a1, shiftIntervalMax
+	lw $a2, shiftIntervalMin
+	jal getRandomNum
+	sw $v0, 0($t0) # Set new interval
+
+	#State flip
+	la $a0, logs2State # Load state address
+	jal flipLogState
+
+	shiftLog2:
+	# Loop init
+	lw $t0, displayWidth  # Load xPos counter
+	addi $t0 $t0, -1
+
+	# Loop start
+	shiftLog2Start:
+	li $t1, 0
+	
+	beq $t0, $t1, shiftLog2End 
+	addi $a1, $t0, -1 # Sample xPos
+	lw $a2, logs2Region # Sample yPos
+	jal getAtOverPos
+	
+	move $a0 ,$v0 # Set color
+	move $a1, $t0 # Set xPos
+	lw $a2, logs2Region # Set yPos
+	li $a3, 1 # Set width
+	li, $t2, 4 # Set height
+
+	addi $sp, $sp, -4 
+ 	sw $t0, 0($sp) # Push $t0 to stack
+	sw, $t2, 16($sp) # Load height into stack
+	jal drawSetRect
+	lw $t0,  0($sp) # Load $t0 from stack
+	addi $sp, $sp, 4
+
+	addi $t0, $t0, -1 # Increment counter
+	j shiftLog2Start
+	shiftLog2End:
+	lw $a0, logs2State # Set color
+	li $a1, 0 # Set xPos
+	lw $a2, logs2Region # Set yPos
+	li $a3, 1 # Set width
+	li, $t2, 4 # Set height
+	sw, $t2, 16($sp) # Load height into stack
+	jal drawSetRect
+
+	lw $ra,  0($sp) # Load $ra from stack
+	addi $sp, $sp, 4
+	jr $ra # Exit function
+
+#
+# $a0 -> log region address
+flipLogState:
+	addi $sp, $sp, -4 
+ 	sw $ra, 0($sp) # Push $ra to stack
+
+ 	lw $v0, 0($a0) # Load state
+
+	lw $t9 logColor
+	lw $t8 waterColor
+	
+	# Check old state
+	beq $t9, $v0, flipLogToWater
+	move $v0, $t9 
+	j logStateExit
+	
+	flipLogToWater:
+	move $v0, $t8
+
+	logStateExit:
+	sw $v0, 0($a0) # Set new state
+
+	lw $ra,  0($sp) # Load $ra from stack
+	addi $sp, $sp, 4
+	jr $ra # Exit function
+
+flipCarState:
+	addi $sp, $sp, -4 
+ 	sw $ra, 0($sp) # Push $ra to stack
+
+ 	lw $v0, 0($a0) # Load state
+
+	lw $t9 carColor
+	lw $t8 roadColor
+	
+	# Check old state
+	beq $t9, $v0, flipCarToRoad
+	move $v0, $t9 
+	j carStateExit
+	
+	flipCarToRoad:
+	move $v0, $t8
+
+	carStateExit:
+	sw $v0, 0($a0) # Set new state
+
+	lw $ra,  0($sp) # Load $ra from stack
+	addi $sp, $sp, 4
+	jr $ra # Exit function
+
+
+
+
+
+##
+
+
+# $a1 -> upperbound
+# $a2 -> lowerbound
+getRandomNum:
+	li $v0, 42
+	li $a0, 0
+	sub $a1, $a1, $a2 # Shift upper bound
+	syscall
+	add $v0, $a0, $a2 # Apply lower bound
+	jr $ra # Exit function
 
 
 Exit:
