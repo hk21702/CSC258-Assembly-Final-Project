@@ -24,7 +24,7 @@
 # ... (add more if necessary)
 #
 # Any additional information that the TA needs to know:
-# - (write here, if any)
+# - MARS likes to crash if you hold down a button. This seems to be an issue with MARS
 #
 ####################################################################
 	.data
@@ -42,7 +42,9 @@ safeColor: .word 0xFFBF00
 ## Dynamic Positions (x, y) 32 x 32 display ##
 ## Positiosn represent top right of sprite
 frogX: .word 16
-frogY: .word 28
+frogY: .word 26
+frogXI: .word 16
+frogYI: .word 26
 setOverlay: .space 4096 # 32 * 32 * 4
 entityOverlay: .space 4096
 ## Fixed Positions
@@ -106,11 +108,12 @@ main:
 	jal shiftCars2
 
 	gameLoopEnd:
+	jal clearFrog
 	lw $t8, 0xffff0000
 	beq $t8, 1, keyboardInput
-	jal clearEntityOverlay
 	jal drawFrog
 	jal draw
+	jal collisionCheck
 
 	# Delay till next frame
 	li $v0, 32 
@@ -147,9 +150,9 @@ keyboardInput:
 
 		la $t0, frogX
 		lw $t4, 0($t0)
-		li $t1, 3 
+		li $t1, 0 
 		ble $t4, $t1, aExit
-		addi $t4, $t4, -4
+		addi $t4, $t4, -1
 		sw $t4, 0($t0)
 		aExit:
 		lw $ra,  0($sp) 
@@ -179,11 +182,10 @@ keyboardInput:
 		lw $t4, 0($t0)
 		lw $t1, displayWidth
 		lw $t2, frogWidth
-		sll $t2, $t2, 1
-		subi $t2, $t2, 1
+		#subi $t2, $t2, 1
 		sub $t1, $t1, $t2
 		bge $t4, $t1, dExit
-		addi $t4, $t4, 4
+		addi $t4, $t4, 1
 		sw $t4, 0($t0)
 		dExit:
 		lw $ra,  0($sp) 
@@ -231,6 +233,87 @@ drawFrog:
  	sw $ra, 0($sp) # Push $ra to stack
 	
 	lw $a0, frogColor # Load color
+
+	lw $t1, frogX # Load frog top left pos
+	lw $t2, frogY
+	
+	# Column 1
+	move $a1, $t1
+	move $a2, $t2
+	jal setAtEntityPos
+	
+	addi $t2, $t2, 1
+	move $a1, $t1
+	move $a2, $t2
+	jal setAtEntityPos
+
+	addi $t2, $t2, 2
+	move $a1, $t1
+	move $a2, $t2
+	jal setAtEntityPos
+
+	# Column 2
+	addi $t1, $t1, 1
+
+	move $a1, $t1
+	move $a2, $t2
+	jal setAtEntityPos
+
+	addi $t2, $t2, -1
+	move $a1, $t1
+	move $a2, $t2
+	jal setAtEntityPos
+
+	addi $t2, $t2, -1
+	move $a1, $t1
+	move $a2, $t2
+	jal setAtEntityPos
+
+	# Column 3
+	addi $t1, $t1, 1
+
+	move $a1, $t1
+	move $a2, $t2
+	jal setAtEntityPos
+
+	addi $t2, $t2, 1
+	move $a1, $t1
+	move $a2, $t2
+	jal setAtEntityPos
+
+	addi $t2, $t2, 1
+	move $a1, $t1
+	move $a2, $t2
+	jal setAtEntityPos
+
+	# Column 4
+	addi $t1, $t1, 1
+
+	move $a1, $t1
+	move $a2, $t2
+	jal setAtEntityPos
+
+	addi $t2, $t2, -2
+	move $a1, $t1
+	move $a2, $t2
+	jal setAtEntityPos
+
+	addi $t2, $t2, -1
+	move $a1, $t1
+	move $a2, $t2
+	jal setAtEntityPos
+
+# Load $ra from stack
+	lw $ra,  0($sp) 
+	addi $sp, $sp, 4
+	jr $ra
+
+clearFrog:
+# Save $ra to stack
+ 	addi $sp, $sp, -4 
+ 	sw $ra, 0($sp) # Push $ra to stack
+	
+	la $a0, ($0) # Load color
 
 	lw $t1, frogX # Load frog top left pos
 	lw $t2, frogY
@@ -1027,6 +1110,142 @@ getRandomNum:
 	syscall
 	add $v0, $a0, $a2 # Apply lower bound
 	jr $ra # Exit function
+
+death:
+	 	addi $sp, $sp, -4 
+ 		sw $ra, 0($sp) # Push $ra to stack
+
+		# Remove life
+		la $t0, lives
+		lw $t4, 0($t0)
+		addi $t4, $t4, -1
+		sw $t4, 0($t0)
+
+		# Skip reset if no more lives
+		beq $t4, 0, deathEnd
+		jal clearFrog
+
+		la $t0, frogX # Reset frogX
+		lw $t4, frogXI
+		sw $t4, 0($t0)
+
+		la $t0, frogY # Reset frogY
+		lw $t4, frogYI
+		sw $t4, 0($t0)
+
+		deathEnd:
+		lw $ra,  0($sp) 
+		addi $sp, $sp, 4
+		jr $ra
+
+collisionCheck:
+	addi $sp, $sp, -4 
+ 	sw $ra, 0($sp) # Push $ra to stack
+
+	lw $t1, frogX # Load frog top left pos
+	lw $t2, frogY
+	lw $t9, carColor # Load car color
+	lw $t8, waterColor #Load water color
+
+	
+	# Column 1
+	move $a1, $t1
+	move $a2, $t2
+	jal getAtOverPos
+	beq $v0, $t9, deathCollisionEvent
+	beq $v0, $t8, deathCollisionEvent
+	
+	addi $t2, $t2, 1
+	move $a1, $t1
+	move $a2, $t2
+	jal getAtOverPos
+	beq $v0, $t9, deathCollisionEvent
+	beq $v0, $t8, deathCollisionEvent
+
+
+	addi $t2, $t2, 2
+	move $a1, $t1
+	move $a2, $t2
+	jal getAtOverPos
+	beq $v0, $t9, deathCollisionEvent
+	beq $v0, $t8, deathCollisionEvent
+
+	# Column 2
+	addi $t1, $t1, 1
+
+	move $a1, $t1
+	move $a2, $t2
+	jal getAtOverPos
+	beq $v0, $t9, deathCollisionEvent
+	beq $v0, $t8, deathCollisionEvent
+
+	addi $t2, $t2, -1
+	move $a1, $t1
+	move $a2, $t2
+	jal getAtOverPos
+	beq $v0, $t9, deathCollisionEvent
+	beq $v0, $t8, deathCollisionEvent
+
+	addi $t2, $t2, -1
+	move $a1, $t1
+	move $a2, $t2
+	jal getAtOverPos
+	beq $v0, $t9, deathCollisionEvent
+	beq $v0, $t8, deathCollisionEvent
+
+	# Column 3
+	addi $t1, $t1, 1
+
+	move $a1, $t1
+	move $a2, $t2
+	jal getAtOverPos
+	beq $v0, $t9, deathCollisionEvent
+	beq $v0, $t8, deathCollisionEvent
+
+	addi $t2, $t2, 1
+	move $a1, $t1
+	move $a2, $t2
+	jal getAtOverPos
+	beq $v0, $t9, deathCollisionEvent
+	beq $v0, $t8, deathCollisionEvent
+
+	addi $t2, $t2, 1
+	move $a1, $t1
+	move $a2, $t2
+	jal getAtOverPos
+	beq $v0, $t9, deathCollisionEvent
+	beq $v0, $t8, deathCollisionEvent
+
+	# Column 4
+	addi $t1, $t1, 1
+
+	move $a1, $t1
+	move $a2, $t2
+	jal getAtOverPos
+	beq $v0, $t9, deathCollisionEvent
+	beq $v0, $t8, deathCollisionEvent
+
+	addi $t2, $t2, -2
+	move $a1, $t1
+	move $a2, $t2
+	jal getAtOverPos
+	beq $v0, $t9, deathCollisionEvent
+	beq $v0, $t8, deathCollisionEvent
+
+	addi $t2, $t2, -1
+	move $a1, $t1
+	move $a2, $t2
+	jal getAtOverPos
+	beq $v0, $t9, deathCollisionEvent
+	beq $v0, $t8, deathCollisionEvent
+	j collisionCheckEnd # Skip death if no collision
+
+	deathCollisionEvent:
+		jal death
+	collisionCheckEnd:
+	lw $ra,  0($sp) 
+	addi $sp, $sp, 4
+	jr $ra
 
 
 Exit:
