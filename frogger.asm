@@ -14,7 +14,7 @@
 #
 # Which milestone is reached in this submission?
 # (See the assignment handout for descriptions of the milestones)
-# - Milestone 2
+# - Milestone 3
 #
 # Which approved additional features have been implemented?
 # (See the assignment handout for the list of additional features)
@@ -25,7 +25,7 @@
 #
 # Any additional information that the TA needs to know:
 # - MARS likes to crash if you hold down a button. This seems to be an issue with MARS
-#
+# - If one tries enters the goal region but the spot is already occupied or partially occupied, frog will reset without life penalty but no gain in score. This is intentional.
 ####################################################################
 	.data
 ## Scoring ##
@@ -41,12 +41,13 @@ carColor: .word 0xdbbfd5
 safeColor: .word 0xFFBF00
 ## Dynamic Positions (x, y) 32 x 32 display ##
 ## Positiosn represent top right of sprite
-frogX: .word 16
-frogY: .word 26
-frogXI: .word 16
-frogYI: .word 26
+frogX: .word 14
+frogY: .word 28
+frogXI: .word 14
+frogYI: .word 28
 setOverlay: .space 4096 # 32 * 32 * 4
 entityOverlay: .space 4096
+victoryOverlay: .space 4096
 ## Fixed Positions
 cars1Region: .word 20
 cars2Region: .word 24
@@ -55,6 +56,7 @@ logs2Region: .word 12
 regionHeight: .word 4
 frogWidth: .word 4
 frogHeight: .word 4
+endRegion: .word 4
 ## 
 cars1Counter: .word 2
 cars2Counter: .word 4
@@ -114,6 +116,7 @@ main:
 	jal drawFrog
 	jal draw
 	jal collisionCheck
+	jal checkVictory
 
 	# Delay till next frame
 	li $v0, 32 
@@ -182,7 +185,6 @@ keyboardInput:
 		lw $t4, 0($t0)
 		lw $t1, displayWidth
 		lw $t2, frogWidth
-		#subi $t2, $t2, 1
 		sub $t1, $t1, $t2
 		bge $t4, $t1, dExit
 		addi $t4, $t4, 1
@@ -467,10 +469,17 @@ startDrawLoop2:
 	move $a1, $t1
 	move $a2, $t2
 	jal getAtEntityPos
-	beq $v0, $0, drawSkip
+	beq $v0, $0, drawSkip1
 	move $a0, $v0 # Override color
 
-	drawSkip:
+	drawSkip1:
+	move $a1, $t1
+	move $a2, $t2
+	jal getAtVictoryPos
+	beq $v0, $0, drawSkip2
+	move $a0, $v0 # Override color
+
+	drawSkip2:
 	move $a1, $t1
 	move $a2, $t2
 	jal coordinateToAddress # convert pos to address ($v0 is now address)
@@ -703,6 +712,29 @@ setAtEntityPos:
 	sw $a0, 0($v0)
 	jr $ra
 
+# $a1 xPos
+# $a2 yPos
+getAtVictoryPos:
+	la $v0, victoryOverlay
+	sll $a1, $a1, 2
+	sll $a2, $a2, 7
+	add $a1, $a1, $a2
+	add $v0, $a1, $v0
+	lw $v0, 0($v0)
+	jr $ra # Exit function
+
+# $a0 word to set at pos
+# $a1 xPos
+# $a2 yPos
+setAtVictoryPos:
+	la $v0, victoryOverlay
+	sll $a1, $a1, 2
+	sll $a2 $a2, 7
+	add $a1, $a1, $a2
+	add $v0, $a1, $v0
+	sw $a0, 0($v0)
+	jr $ra
+
 clearEntityOverlay:
 	addi $sp, $sp, -4 
  	sw $ra, 0($sp) # Push $ra to stack
@@ -858,6 +890,64 @@ shiftLogs1:
 	sw, $t2, 16($sp) # Load height into stack
 	jal drawSetRect
 
+	# Shift frog if frog on region
+	lw $t0, frogY # Load frog Y
+	lw $t1, logs1Region # Load region Y
+	beq $t0, $t1, log1FrogShift
+	j log1EndEnd
+	log1FrogShift:
+		jal shiftFrogLeft
+	log1EndEnd:
+	lw $ra,  0($sp) # Load $ra from stack
+	addi $sp, $sp, 4
+	jr $ra # Exit function
+
+shiftFrogLeft:
+	addi $sp, $sp, -4 
+ 	sw $ra, 0($sp) # Push $ra to stack
+
+		li $t1, 0
+		lw $t2, displayWidth
+		lw $t3, frogWidth
+		sub $t2, $t2, $t3
+		beq $t4, $t1, shiftFLeftDeath
+		beq $t4, $t3, shiftFLeftDeath
+
+	jal clearFrog
+
+		la $t0, frogX
+		lw $t4, 0($t0)
+		addi $t4, $t4, -1
+		sw $t4, 0($t0)
+		j shiftFrogLeftEnd
+	shiftFLeftDeath:
+	jal death
+	shiftFrogLeftEnd:
+	lw $ra,  0($sp) # Load $ra from stack
+	addi $sp, $sp, 4
+	jr $ra # Exit function
+
+shiftFrogRight:
+	addi $sp, $sp, -4 
+ 	sw $ra, 0($sp) # Push $ra to stack
+
+		li $t1, 0
+		lw $t2, displayWidth
+		lw $t3, frogWidth
+		sub $t2, $t2, $t3
+		beq $t4, $t1, shiftFRightDeath
+		beq $t4, $t3, shiftFRightDeath
+
+	jal clearFrog
+
+		la $t0, frogX
+		lw $t4, 0($t0)
+		addi $t4, $t4, 1
+		sw $t4, 0($t0)
+		j shiftFrogRightEnd
+	shiftFRightDeath:
+	jal death
+	shiftFrogRightEnd:
 	lw $ra,  0($sp) # Load $ra from stack
 	addi $sp, $sp, 4
 	jr $ra # Exit function
@@ -920,6 +1010,15 @@ shiftLogs2:
 	li, $t2, 4 # Set height
 	sw, $t2, 16($sp) # Load height into stack
 	jal drawSetRect
+
+	# Shift frog if frog on region
+	lw $t0, frogY # Load frog Y
+	lw $t1, logs2Region # Load region Y
+	beq $t0, $t1, log2FrogShift
+	j log2EndEnd
+	log2FrogShift:
+		jal shiftFrogRight
+	log2EndEnd:
 
 	lw $ra,  0($sp) # Load $ra from stack
 	addi $sp, $sp, 4
@@ -1122,7 +1221,18 @@ death:
 		sw $t4, 0($t0)
 
 		# Skip reset if no more lives
-		beq $t4, 0, deathEnd
+		beq $t4, 0, Exit
+		jal resetFrogPos
+
+		deathEnd:
+		lw $ra,  0($sp) 
+		addi $sp, $sp, 4
+		jr $ra
+
+resetFrogPos:
+		addi $sp, $sp, -4 
+ 		sw $ra, 0($sp) # Push $ra to stack
+
 		jal clearFrog
 
 		la $t0, frogX # Reset frogX
@@ -1133,10 +1243,124 @@ death:
 		lw $t4, frogYI
 		sw $t4, 0($t0)
 
-		deathEnd:
 		lw $ra,  0($sp) 
 		addi $sp, $sp, 4
 		jr $ra
+
+checkVictory:
+		addi $sp, $sp, -4 
+ 		sw $ra, 0($sp) # Push $ra to stack
+
+		lw $t0, frogY
+		lw $t1, endRegion 
+		bgt $t0, $t1, noVictory
+
+		lw $t9, frogColor # Load frog color
+
+		# Check if spot filled
+		addi $a2, $t0, 3 # Set y pos
+		lw $a1, frogX # Set x pos
+		jal getAtVictoryPos
+		beq $t9, $v0, skipVictory
+
+		addi $a2, $t0, 3 # Set y pos
+		lw $a1, frogX # Set x pos
+		addi $a1, $a1, 1
+		jal getAtVictoryPos
+		beq $t9, $v0, skipVictory
+
+		addi $a2, $t0, 3 # Set y pos
+		lw $a1, frogX # Set x pos
+		addi $a1, $a1, 2
+		jal getAtVictoryPos
+		beq $t9, $v0, skipVictory
+
+		addi $a2, $t0, 3 # Set y pos
+		lw $a1, frogX # Set x pos
+		addi $a1, $a1, 3
+		jal getAtVictoryPos
+		beq $t9, $v0, skipVictory
+
+
+		# Draw
+	lw $a0, frogColor
+	lw $t1, frogX
+	lw $t2, frogY
+
+		# Column 1
+	move $a1, $t1
+	move $a2, $t2
+	jal setAtVictoryPos
+
+
+	addi $t2, $t2, 3
+	move $a1, $t1
+	move $a2, $t2
+	jal setAtVictoryPos
+
+	# Column 2
+	addi $t1, $t1, 1
+
+	move $a1, $t1
+	move $a2, $t2
+	jal setAtVictoryPos
+
+	addi $t2, $t2, -1
+	move $a1, $t1
+	move $a2, $t2
+	jal setAtVictoryPos
+
+	addi $t2, $t2, -1
+	move $a1, $t1
+	move $a2, $t2
+	jal setAtVictoryPos
+
+	addi $t2, $t2, -1
+	move $a1, $t1
+	move $a2, $t2
+	jal setAtVictoryPos
+
+	# Column 3
+	addi $t1, $t1, 1
+
+	move $a1, $t1
+	move $a2, $t2
+	jal setAtVictoryPos
+
+	addi $t2, $t2, 1
+	move $a1, $t1
+	move $a2, $t2
+	jal setAtVictoryPos
+
+	addi $t2, $t2, 1
+	move $a1, $t1
+	move $a2, $t2
+	jal setAtVictoryPos
+
+	addi $t2, $t2, 1
+	move $a1, $t1
+	move $a2, $t2
+	jal setAtVictoryPos
+
+	# Column 4
+	addi $t1, $t1, 1
+
+	move $a1, $t1
+	move $a2, $t2
+	jal setAtVictoryPos
+
+	addi $t2, $t2, -3
+	move $a1, $t1
+	move $a2, $t2
+	jal setAtVictoryPos
+
+
+	skipVictory:
+	jal resetFrogPos
+	noVictory:
+	lw $ra,  0($sp) 
+	addi $sp, $sp, 4
+	jr $ra
 
 collisionCheck:
 	addi $sp, $sp, -4 
