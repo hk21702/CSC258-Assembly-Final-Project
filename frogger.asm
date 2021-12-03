@@ -48,6 +48,7 @@ frogYI: .word 28
 setOverlay: .space 4096 # 32 * 32 * 4
 entityOverlay: .space 4096
 victoryOverlay: .space 4096
+infoOverlay: .space 4096
 ## Fixed Positions
 cars1Region: .word 20
 cars2Region: .word 24
@@ -482,6 +483,13 @@ startDrawLoop2:
 	drawSkip2:
 	move $a1, $t1
 	move $a2, $t2
+	jal getAtInfoPos
+	beq $v0, $0, drawSkip3
+	move $a0, $v0 # Override color
+
+	drawSkip3:
+	move $a1, $t1
+	move $a2, $t2
 	jal coordinateToAddress # convert pos to address ($v0 is now address)
 	move $a3, $v0
 	jal setPixel
@@ -735,6 +743,30 @@ setAtVictoryPos:
 	sw $a0, 0($v0)
 	jr $ra
 
+#
+# $a1 xPos
+# $a2 yPos
+getAtInfoPos:
+	la $v0, infoOverlay
+	sll $a1, $a1, 2
+	sll $a2, $a2, 7
+	add $a1, $a1, $a2
+	add $v0, $a1, $v0
+	lw $v0, 0($v0)
+	jr $ra # Exit function
+
+# $a0 word to set at pos
+# $a1 xPos
+# $a2 yPos
+setAtInfoPos:
+	la $v0, infoOverlay
+	sll $a1, $a1, 2
+	sll $a2 $a2, 7
+	add $a1, $a1, $a2
+	add $v0, $a1, $v0
+	sw $a0, 0($v0)
+	jr $ra
+
 clearEntityOverlay:
 	addi $sp, $sp, -4 
  	sw $ra, 0($sp) # Push $ra to stack
@@ -776,35 +808,35 @@ drawEntityRect:
 	move $t3, $t1        # Initialize xPos counter
 	move $t4, $t1        # Initialize rightmost position  
 	add $t4, $t4, $a3
-startEntityRectLoop1:  
-	beq $t3, $t4, endEntityRectLoop1
-	bge $t3, $t8, endEntityRectLoop1 # Ensure xPos stays on screen
-	blt $t3, 0, endEntityRectLoop2 # Don't attempt draw if x < 0
-######################## Inner loop  
-	move $t1, $t2        # Initialize yPos counter  
-	move $t6, $t2        # Initialize bottommost position  
-	add $t6, $t6, $t5
-startEntityRectLoop2:  
-	beq $t1, $t6, endEntityRectLoop2  
-	bge $t1, $t7, endEntityRectLoop2 # Ensure yPos stays on screen
-	blt $t1, 0, incSetRectY # Don't attempt draw if y < 0
-	
-	move $a0, $t0
-	move $a1, $t3
-	move $a2, $t1
-	jal setAtEntityPos
+	startEntityRectLoop1:  
+		beq $t3, $t4, endEntityRectLoop1
+		bge $t3, $t8, endEntityRectLoop1 # Ensure xPos stays on screen
+		blt $t3, 0, endEntityRectLoop2 # Don't attempt draw if x < 0
+	######################## Inner loop  
+		move $t1, $t2        # Initialize yPos counter  
+		move $t6, $t2        # Initialize bottommost position  
+		add $t6, $t6, $t5
+	startEntityRectLoop2:  
+		beq $t1, $t6, endEntityRectLoop2  
+		bge $t1, $t7, endEntityRectLoop2 # Ensure yPos stays on screen
+		blt $t1, 0, incSetRectY # Don't attempt draw if y < 0
+		
+		move $a0, $t0
+		move $a1, $t3
+		move $a2, $t1
+		jal setAtEntityPos
 
-  	incSetRectY:
-	addi $t1, $t1, 1    # Increment yPos counter  
-	b startEntityRectLoop2  
-endEntityRectLoop2:  
-######################## Inner loop  
-	addi $t3, $t3, 1    # Increment xPos counter  
-	b startEntityRectLoop1
-endEntityRectLoop1:
-	lw $ra,  0($sp) # Load $ra from stack
-	addi $sp, $sp, 4
-	jr $ra # Exit function
+		incSetRectY:
+		addi $t1, $t1, 1    # Increment yPos counter  
+		b startEntityRectLoop2  
+	endEntityRectLoop2:  
+	######################## Inner loop  
+		addi $t3, $t3, 1    # Increment xPos counter  
+		b startEntityRectLoop1
+	endEntityRectLoop1:
+		lw $ra,  0($sp) # Load $ra from stack
+		addi $sp, $sp, 4
+		jr $ra # Exit function
 
 initShifters:
 	lw $t9, waterColor
@@ -1500,6 +1532,242 @@ collisionCheck:
 	addi $sp, $sp, 4
 	jr $ra
 
+# void drawInfoyRect
+	# Draw rectangle
+	#
+	# $a0: color
+	# $a1: xPos (Top left corner)
+	# $a2: yPos (Top left corner)
+	# $a3: width
+	# $16($sp): height
+	# returns none
+drawInfoRect:
+	lw $t5, 16($sp) # Load height from stack
+	lw $t8, displayWidth # Load displayWidth
+	lw $t7, displayHeight # Load displayHeight
+ 	
+ 	addi $sp, $sp, -4 
+ 	sw $ra, 0($sp) # Push $ra to stack
+ 	
+	move $t0, $a0 # Save base color
+	move $t1, $a1 # Save fixed initial xPos
+	move $t2, $a2 # Save fixed initial yPos
+	
+	move $t3, $t1        # Initialize xPos counter
+	move $t4, $t1        # Initialize rightmost position  
+	add $t4, $t4, $a3
+	startInfoRectLoop1:  
+		beq $t3, $t4, endInfoRectLoop1
+		bge $t3, $t8, endInfoRectLoop1 # Ensure xPos stays on screen
+		blt $t3, 0, endInfoRectLoop2 # Don't attempt draw if x < 0
+	######################## Inner loop  
+		move $t1, $t2        # Initialize yPos counter  
+		move $t6, $t2        # Initialize bottommost position  
+		add $t6, $t6, $t5
+	startInfoRectLoop2:  
+		beq $t1, $t6, endInfoRectLoop2  
+		bge $t1, $t7, endInfoRectLoop2 # Ensure yPos stays on screen
+		blt $t1, 0, incInfoRectY # Don't attempt draw if y < 0
+		
+		move $a0, $t0
+		move $a1, $t3
+		move $a2, $t1
+		jal setAtInfoPos
+
+		incInfoRectY:
+		addi $t1, $t1, 1    # Increment yPos counter  
+		b startInfoRectLoop2  
+	endInfoRectLoop2:  
+	######################## Inner loop  
+		addi $t3, $t3, 1    # Increment xPos counter  
+		b startInfoRectLoop1
+	endInfoRectLoop1:
+		lw $ra,  0($sp) # Load $ra from stack
+		addi $sp, $sp, 4
+		jr $ra # Exit function
+
+clearInfoOverlay:
+	addi $sp, $sp, -4 
+ 	sw $ra, 0($sp) # Push $ra to stack
+	
+	la $a0, ($0)
+	li $a1, 0
+	li $a2, 0
+	lw $a3, displayWidth
+	lw $t1, displayHeight
+	sw, $t0, 16($sp)
+	jal drawInfoRect
+
+	lw $ra,  0($sp) # Load $ra from stack
+	addi $sp, $sp, 4
+	jr $ra # Exit function
+
+drawA:
+	addi $sp, $sp, -4 
+ 	sw $ra, 0($sp) # Push $ra to stack
+	lw $t0, $a0
+	lw $t1, $a1
+	lw $t2, $a2
+	
+	lw $a0, $t0
+	lw $a1, $t1
+	lw $a2, $t2
+	addi $a2, $a2, 1
+	setAtInfoPos
+
+	lw $a0, $t0
+	lw $a1, $t1
+	lw $a2, $t2
+	addi $a2, $a2, 2
+	setAtInfoPos
+	
+	lw $a0, $t0
+	lw $a1, $t1
+	lw $a2, $t2
+	addi $a2, $a2, 3
+	setAtInfoPos
+
+	lw $a0, $t0
+	lw $a1, $t1
+	lw $a2, $t2
+	addi $a2, $a2, 4
+	setAtInfoPos
+
+	lw $a0, $t0
+	lw $a1, $t1
+	lw $a2, $t2
+	addi $a1, $a1, 1
+	setAtInfoPos
+
+	lw $a0, $t0
+	lw $a1, $t1
+	lw $a2, $t2
+	addi $a1, $a1, 1
+	addi $a2, $a2, 2
+	setAtInfoPos
+
+	lw $a0, $t0
+	lw $a1, $t1
+	lw $a2, $t2
+	addi $a1, $a1, 2
+	addi $a2, $a2, 1
+	setAtInfoPos
+
+	lw $a0, $t0
+	lw $a1, $t1
+	lw $a2, $t2
+	addi $a1, $a1, 2
+	addi $a2, $a2, 2
+	setAtInfoPos
+	
+	lw $a0, $t0
+	lw $a1, $t1
+	lw $a2, $t2
+	addi $a1, $a1, 2
+	addi $a2, $a2, 3
+	setAtInfoPos
+
+	lw $a0, $t0
+	lw $a1, $t1
+	lw $a2, $t2
+	addi $a1, $a1, 2
+	addi $a2, $a2, 4
+	setAtInfoPos
+
+	addi
+	
+
+	lw $ra,  0($sp) 
+	addi $sp, $sp, 4
+	jr $ra
+
+drawG:
+	addi $sp, $sp, -4 
+ 	sw $ra, 0($sp) # Push $ra to stack
+	lw $t0, $a0
+	lw $t1, $a1
+	lw $t2, $a2
+
+	lw $ra,  0($sp) 
+	addi $sp, $sp, 4
+	jr $ra
+
+drawM:
+	addi $sp, $sp, -4 
+ 	sw $ra, 0($sp) # Push $ra to stack
+	lw $t0, $a0
+	lw $t1, $a1
+	lw $t2, $a2
+
+	lw $ra,  0($sp) 
+	addi $sp, $sp, 4
+	jr $ra
+
+drawE:
+	addi $sp, $sp, -4 
+ 	sw $ra, 0($sp) # Push $ra to stack
+	 lw $t0, $a0
+	lw $t1, $a1
+	lw $t2, $a2
+
+	lw $ra,  0($sp) 
+	addi $sp, $sp, 4
+	jr $ra
+
+drawO:
+	addi $sp, $sp, -4 
+ 	sw $ra, 0($sp) # Push $ra to stack
+	 lw $t0, $a0
+	lw $t1, $a1
+	lw $t2, $a2
+
+	lw $ra,  0($sp) 
+	addi $sp, $sp, 4
+	jr $ra
+
+drawV:
+	addi $sp, $sp, -4 
+ 	sw $ra, 0($sp) # Push $ra to stack
+	 lw $t0, $a0
+	lw $t1, $a1
+	lw $t2, $a2
+
+	lw $ra,  0($sp) 
+	addi $sp, $sp, 4
+	jr $ra
+
+drawR:
+	addi $sp, $sp, -4 
+ 	sw $ra, 0($sp) # Push $ra to stack
+	 lw $t0, $a0
+	lw $t1, $a1
+	lw $t2, $a2
+
+	lw $ra,  0($sp) 
+	addi $sp, $sp, 4
+	jr $ra
+
+drawP:
+	addi $sp, $sp, -4 
+ 	sw $ra, 0($sp) # Push $ra to stack
+	 lw $t0, $a0
+	lw $t1, $a1
+	lw $t2, $a2
+
+	lw $ra,  0($sp) 
+	addi $sp, $sp, 4
+	jr $ra
+
+drawT:
+	addi $sp, $sp, -4 
+ 	sw $ra, 0($sp) # Push $ra to stack
+	 lw $t0, $a0
+	lw $t1, $a1
+	lw $t2, $a2
+
+	lw $ra,  0($sp) 
+	addi $sp, $sp, 4
+	jr $ra
 
 Exit:
 	li $v0, 10 # terminate the program
