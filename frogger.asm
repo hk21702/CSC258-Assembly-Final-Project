@@ -39,6 +39,8 @@ grassColor: .word 0xabd5ab
 roadColor: .word 0x999999
 carColor: .word 0xdbbfd5
 safeColor: .word 0xFFBF00
+text1Color: .word 0xD787DA
+text2Color: .word 0xb66a6a
 ## Dynamic Positions (x, y) 32 x 32 display ##
 ## Positiosn represent top right of sprite
 frogX: .word 14
@@ -87,6 +89,10 @@ main:
 	jal initLogs1
 	jal initLogs2
 	jal initShifters
+	lw $a0 text1Color
+	li $a1, 0
+	li $a2, 0
+	jal drawA
 	
 	gameLoop:
 	# Tick framecounter
@@ -1605,76 +1611,74 @@ clearInfoOverlay:
 drawA:
 	addi $sp, $sp, -4 
  	sw $ra, 0($sp) # Push $ra to stack
-	lw $t0, $a0
-	lw $t1, $a1
-	lw $t2, $a2
+	move $t0, $a0
+	move $t1, $a1
+	move $t2, $a2
 	
-	lw $a0, $t0
-	lw $a1, $t1
-	lw $a2, $t2
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
 	addi $a2, $a2, 1
-	setAtInfoPos
+	jal setAtInfoPos
 
-	lw $a0, $t0
-	lw $a1, $t1
-	lw $a2, $t2
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
 	addi $a2, $a2, 2
-	setAtInfoPos
+	jal setAtInfoPos
 	
-	lw $a0, $t0
-	lw $a1, $t1
-	lw $a2, $t2
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
 	addi $a2, $a2, 3
-	setAtInfoPos
+	jal setAtInfoPos
 
-	lw $a0, $t0
-	lw $a1, $t1
-	lw $a2, $t2
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
 	addi $a2, $a2, 4
-	setAtInfoPos
+	jal setAtInfoPos
 
-	lw $a0, $t0
-	lw $a1, $t1
-	lw $a2, $t2
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
 	addi $a1, $a1, 1
-	setAtInfoPos
+	jal setAtInfoPos
 
-	lw $a0, $t0
-	lw $a1, $t1
-	lw $a2, $t2
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
 	addi $a1, $a1, 1
 	addi $a2, $a2, 2
-	setAtInfoPos
+	jal setAtInfoPos
 
-	lw $a0, $t0
-	lw $a1, $t1
-	lw $a2, $t2
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
 	addi $a1, $a1, 2
 	addi $a2, $a2, 1
-	setAtInfoPos
+	jal setAtInfoPos
 
-	lw $a0, $t0
-	lw $a1, $t1
-	lw $a2, $t2
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
 	addi $a1, $a1, 2
 	addi $a2, $a2, 2
-	setAtInfoPos
+	jal setAtInfoPos
 	
-	lw $a0, $t0
-	lw $a1, $t1
-	lw $a2, $t2
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
 	addi $a1, $a1, 2
 	addi $a2, $a2, 3
-	setAtInfoPos
+	jal setAtInfoPos
 
-	lw $a0, $t0
-	lw $a1, $t1
-	lw $a2, $t2
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
 	addi $a1, $a1, 2
 	addi $a2, $a2, 4
-	setAtInfoPos
-
-	addi
+	jal setAtInfoPos
 	
 
 	lw $ra,  0($sp) 
@@ -1684,9 +1688,9 @@ drawA:
 drawG:
 	addi $sp, $sp, -4 
  	sw $ra, 0($sp) # Push $ra to stack
-	lw $t0, $a0
-	lw $t1, $a1
-	lw $t2, $a2
+	move $t0, $a0
+	move $t1, $a1
+	move $t2, $a2
 
 	lw $ra,  0($sp) 
 	addi $sp, $sp, 4
@@ -1695,9 +1699,9 @@ drawG:
 drawM:
 	addi $sp, $sp, -4 
  	sw $ra, 0($sp) # Push $ra to stack
-	lw $t0, $a0
-	lw $t1, $a1
-	lw $t2, $a2
+	move $t0, $a0
+	move $t1, $a1
+	move $t2, $a2
 
 	lw $ra,  0($sp) 
 	addi $sp, $sp, 4
@@ -1706,9 +1710,9 @@ drawM:
 drawE:
 	addi $sp, $sp, -4 
  	sw $ra, 0($sp) # Push $ra to stack
-	 lw $t0, $a0
-	lw $t1, $a1
-	lw $t2, $a2
+	move $t0, $a0
+	move $t1, $a1
+	move $t2, $a2
 
 	lw $ra,  0($sp) 
 	addi $sp, $sp, 4
@@ -1717,9 +1721,9 @@ drawE:
 drawO:
 	addi $sp, $sp, -4 
  	sw $ra, 0($sp) # Push $ra to stack
-	 lw $t0, $a0
-	lw $t1, $a1
-	lw $t2, $a2
+	move $t0, $a0
+	move $t1, $a1
+	move $t2, $a2
 
 	lw $ra,  0($sp) 
 	addi $sp, $sp, 4
@@ -1728,9 +1732,9 @@ drawO:
 drawV:
 	addi $sp, $sp, -4 
  	sw $ra, 0($sp) # Push $ra to stack
-	 lw $t0, $a0
-	lw $t1, $a1
-	lw $t2, $a2
+	move $t0, $a0
+	move $t1, $a1
+	move $t2, $a2
 
 	lw $ra,  0($sp) 
 	addi $sp, $sp, 4
@@ -1739,9 +1743,9 @@ drawV:
 drawR:
 	addi $sp, $sp, -4 
  	sw $ra, 0($sp) # Push $ra to stack
-	 lw $t0, $a0
-	lw $t1, $a1
-	lw $t2, $a2
+	move $t0, $a0
+	move $t1, $a1
+	move $t2, $a2
 
 	lw $ra,  0($sp) 
 	addi $sp, $sp, 4
@@ -1750,9 +1754,9 @@ drawR:
 drawP:
 	addi $sp, $sp, -4 
  	sw $ra, 0($sp) # Push $ra to stack
-	 lw $t0, $a0
-	lw $t1, $a1
-	lw $t2, $a2
+	move $t0, $a0
+	move $t1, $a1
+	move $t2, $a2
 
 	lw $ra,  0($sp) 
 	addi $sp, $sp, 4
@@ -1761,9 +1765,9 @@ drawP:
 drawT:
 	addi $sp, $sp, -4 
  	sw $ra, 0($sp) # Push $ra to stack
-	 lw $t0, $a0
-	lw $t1, $a1
-	lw $t2, $a2
+	move $t0, $a0
+	move $t1, $a1
+	move $t2, $a2
 
 	lw $ra,  0($sp) 
 	addi $sp, $sp, 4
