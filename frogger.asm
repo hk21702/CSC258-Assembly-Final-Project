@@ -3,7 +3,7 @@
 # CSC258H5S Fall 2021 Assembly Final Project
 # University of Toronto, St. George
 #
-# Student: Name, Student Number
+# Student: 
 #
 # Bitmap Display Configuration:
 # - Unit width in pixels: 8
@@ -905,13 +905,15 @@ shiftLogs1:
 shiftFrogLeft:
 	addi $sp, $sp, -4 
  	sw $ra, 0($sp) # Push $ra to stack
+		la $t0, frogX
+		lw $t4, 0($t0)
 
 		li $t1, 0
 		lw $t2, displayWidth
 		lw $t3, frogWidth
 		sub $t2, $t2, $t3
 		beq $t4, $t1, shiftFLeftDeath
-		beq $t4, $t3, shiftFLeftDeath
+		beq $t4, $t2, shiftFLeftDeath
 
 	jal clearFrog
 
@@ -930,13 +932,15 @@ shiftFrogLeft:
 shiftFrogRight:
 	addi $sp, $sp, -4 
  	sw $ra, 0($sp) # Push $ra to stack
+	 	la $t0, frogX
+		lw $t4, 0($t0)
 
 		li $t1, 0
 		lw $t2, displayWidth
 		lw $t3, frogWidth
 		sub $t2, $t2, $t3
 		beq $t4, $t1, shiftFRightDeath
-		beq $t4, $t3, shiftFRightDeath
+		beq $t4, $t2, shiftFRightDeath
 
 	jal clearFrog
 
