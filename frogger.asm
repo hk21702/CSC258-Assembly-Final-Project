@@ -18,8 +18,8 @@
 #
 # Which approved additional features have been implemented?
 # (See the assignment handout for the list of additional features)
-# 1. Randomized hazard interval and size (To be added to handout)
-# 2. (fill in the feature, if any)
+# 1. Randomized hazard interval and size
+# 2. Death Animation
 # 3. (fill in the feature, if any)
 # ... (add more if necessary)
 #
@@ -1224,6 +1224,31 @@ death:
 		addi $t4, $t4, -1
 		sw $t4, 0($t0)
 
+		li $t9, 0 # Init counter
+		death_animation_loop:
+		li $t1, 4 # Init max count
+		beq $t9, $t1, death_animation_end
+			# Delay
+			li $v0, 32 
+			lw $a0, msFrameDelay
+			sll $a0, $a0, 4
+			syscall 
+
+			jal clearFrog
+			jal draw
+
+			# Delay
+			li $v0, 32 
+			lw $a0, msFrameDelay
+			sll $a0, $a0, 4
+			syscall 
+
+			jal drawFrog
+			jal draw
+
+			addi $t9, $t9, 1
+			j death_animation_loop
+		death_animation_end:
 		# Skip reset if no more lives
 		beq $t4, 0, Exit
 		jal resetFrogPos
