@@ -14,14 +14,14 @@
 #
 # Which milestone is reached in this submission?
 # (See the assignment handout for descriptions of the milestones)
-# - Milestone 3
+# - Milestone 4
 #
 # Which approved additional features have been implemented?
 # (See the assignment handout for the list of additional features)
 # 1. Randomized hazard interval and size
 # 2. Death Animation
-# 3. (fill in the feature, if any)
-# ... (add more if necessary)
+# 3. Game Over/Reset Screen
+# 4. Life Counter
 #
 # Any additional information that the TA needs to know:
 # - MARS likes to crash if you hold down a button. This seems to be an issue with MARS
@@ -41,6 +41,7 @@ carColor: .word 0xdbbfd5
 safeColor: .word 0xFFBF00
 text1Color: .word 0xD787DA
 text2Color: .word 0xb66a6a
+heartColor: .word 0xa13a3c
 ## Dynamic Positions (x, y) 32 x 32 display ##
 ## Positiosn represent top right of sprite
 frogX: .word 14
@@ -92,6 +93,7 @@ main:
 	lw $a0 text1Color
 	li $a1, 0
 	li $a2, 0
+	jal updateHeartDisplay
 	
 	gameLoop:
 	# Tick framecounter
@@ -2444,6 +2446,11 @@ gameOverScreen:
 	li $t4, 3
 	sw $t4, 0($t0)
 
+	# Reset score
+	la $t0, score
+	li $t4, 0
+	sw $t4, 0($t0)
+
 	jal clearInfoOverlay
 	jal clearFrog
 	jal clearEntityOverlay
@@ -2451,6 +2458,120 @@ gameOverScreen:
 	jal resetFrogPos
 	
 	jal main
+
+updateHeartDisplay:
+	addi $sp, $sp, -4 
+ 	sw $ra, 0($sp) # Push $ra to stack
+	
+	jal clearInfoOverlay
+
+	li $t9, 0 # Init counter
+	heartDisplayLoopStart:
+	lw $t0, lives
+	beq $t0, $t9, heartDisplayLoopEnd
+	sll $t8, $t9, 2
+	li $t7, 2
+	sll $t7, $t9, 1
+	add $t8, $t8, $t7
+
+	lw $a0, heartColor
+	move $a1, $t8
+	li $a2, 0
+	jal drawHeart
+
+	addi $t9, $t9, 1
+	j heartDisplayLoopStart
+	heartDisplayLoopEnd:
+
+	lw $ra,  0($sp) # Load $ra from stack
+	addi $sp, $sp, 4
+	jr $ra # Exit function
+
+drawHeart:
+	addi $sp, $sp, -4 
+ 	sw $ra, 0($sp) # Push $ra to stack
+	move $t0, $a0
+	move $t1, $a1
+	move $t2, $a2
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a1, $a1, 1
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a1, $a1, 3
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a2, $a2, 1
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a1, $a1, 1
+	addi $a2, $a2, 1
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a1, $a1, 2
+	addi $a2, $a2, 1
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a1, $a1, 3
+	addi $a2, $a2, 1
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a1, $a1, 4
+	addi $a2, $a2, 1
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a1, $a1, 1
+	addi $a2, $a2, 2
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a1, $a1, 2
+	addi $a2, $a2, 2
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a1, $a1, 3
+	addi $a2, $a2, 2
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a1, $a1, 2
+	addi $a2, $a2, 3
+	jal setAtInfoPos
+
+	lw $ra,  0($sp) 
+	addi $sp, $sp, 4
+	jr $ra
+
 
 Exit:
 	li $v0, 10 # terminate the program
