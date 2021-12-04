@@ -92,7 +92,6 @@ main:
 	lw $a0 text1Color
 	li $a1, 0
 	li $a2, 0
-	jal drawA
 	
 	gameLoop:
 	# Tick framecounter
@@ -1288,7 +1287,7 @@ death:
 			j death_animation_loop
 		death_animation_end:
 		# Skip reset if no more lives
-		beq $t4, 0, Exit
+		beq $t4, 0, gameOverScreen
 		jal resetFrogPos
 
 		deathEnd:
@@ -1592,6 +1591,51 @@ drawInfoRect:
 		addi $sp, $sp, 4
 		jr $ra # Exit function
 
+drawVictoryRect:
+	lw $t5, 16($sp) # Load height from stack
+	lw $t8, displayWidth # Load displayWidth
+	lw $t7, displayHeight # Load displayHeight
+ 	
+ 	addi $sp, $sp, -4 
+ 	sw $ra, 0($sp) # Push $ra to stack
+ 	
+	move $t0, $a0 # Save base color
+	move $t1, $a1 # Save fixed initial xPos
+	move $t2, $a2 # Save fixed initial yPos
+	
+	move $t3, $t1        # Initialize xPos counter
+	move $t4, $t1        # Initialize rightmost position  
+	add $t4, $t4, $a3
+	startVictoryRectLoop1:  
+		beq $t3, $t4, endVictoryRectLoop1
+		bge $t3, $t8, endVictoryRectLoop1 # Ensure xPos stays on screen
+		blt $t3, 0, endVictoryRectLoop2 # Don't attempt draw if x < 0
+	######################## Inner loop  
+		move $t1, $t2        # Initialize yPos counter  
+		move $t6, $t2        # Initialize bottommost position  
+		add $t6, $t6, $t5
+	startVictoryRectLoop2:  
+		beq $t1, $t6, endVictoryRectLoop2  
+		bge $t1, $t7, endVictoryRectLoop2 # Ensure yPos stays on screen
+		blt $t1, 0, incVictoryRectY # Don't attempt draw if y < 0
+		
+		move $a0, $t0
+		move $a1, $t3
+		move $a2, $t1
+		jal setAtVictoryPos
+
+		incVictoryRectY:
+		addi $t1, $t1, 1    # Increment yPos counter  
+		b startVictoryRectLoop2  
+	endVictoryRectLoop2:  
+	######################## Inner loop  
+		addi $t3, $t3, 1    # Increment xPos counter  
+		b startVictoryRectLoop1
+	endVictoryRectLoop1:
+		lw $ra,  0($sp) # Load $ra from stack
+		addi $sp, $sp, 4
+		jr $ra # Exit function
+
 clearInfoOverlay:
 	addi $sp, $sp, -4 
  	sw $ra, 0($sp) # Push $ra to stack
@@ -1601,8 +1645,24 @@ clearInfoOverlay:
 	li $a2, 0
 	lw $a3, displayWidth
 	lw $t1, displayHeight
-	sw, $t0, 16($sp)
+	sw, $t1, 16($sp)
 	jal drawInfoRect
+
+	lw $ra,  0($sp) # Load $ra from stack
+	addi $sp, $sp, 4
+	jr $ra # Exit function
+
+clearVictoryOverlay:
+	addi $sp, $sp, -4 
+ 	sw $ra, 0($sp) # Push $ra to stack
+	
+	la $a0, ($0)
+	li $a1, 0
+	li $a2, 0
+	lw $a3, displayWidth
+	lw $t1, displayHeight
+	sw, $t1, 16($sp)
+	jal drawVictoryRect
 
 	lw $ra,  0($sp) # Load $ra from stack
 	addi $sp, $sp, 4
@@ -1692,6 +1752,75 @@ drawG:
 	move $t1, $a1
 	move $t2, $a2
 
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a2, $a2, 1
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a2, $a2, 2
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a2, $a2, 3
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a2, $a2, 4
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a1, $a1, 1
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a1, $a1, 1
+	addi $a2, $a2, 4
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a1, $a1, 2
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a1, $a1, 2
+	addi $a2, $a2, 2
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a1, $a1, 2
+	addi $a2, $a2, 3
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a1, $a1, 2
+	addi $a2, $a2, 4
+	jal setAtInfoPos
+
 	lw $ra,  0($sp) 
 	addi $sp, $sp, 4
 	jr $ra
@@ -1702,6 +1831,104 @@ drawM:
 	move $t0, $a0
 	move $t1, $a1
 	move $t2, $a2
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a2, $a2, 1
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a2, $a2, 2
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a2, $a2, 3
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a2, $a2, 4
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a1, $a1, 1
+	addi $a2, $a2, 1
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a1, $a1, 2
+	addi $a2, $a2, 2
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a1, $a1, 2
+	addi $a2, $a2, 3
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a1, $a1, 2
+	addi $a2, $a2, 4
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a1, $a1, 3
+	addi $a2, $a2, 1
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a1, $a1, 4
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a1, $a1, 4
+	addi $a2, $a2, 1
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a1, $a1, 4
+	addi $a2, $a2, 2
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a1, $a1, 4
+	addi $a2, $a2, 3
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a1, $a1, 4
+	addi $a2, $a2, 4
+	jal setAtInfoPos
 
 	lw $ra,  0($sp) 
 	addi $sp, $sp, 4
@@ -1714,6 +1941,54 @@ drawE:
 	move $t1, $a1
 	move $t2, $a2
 
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a1, $a1, 1
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a1, $a1, 2
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a1, $a1, 1
+	addi $a2, $a2, 2
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a1, $a1, 2
+	addi $a2, $a2, 2
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a1, $a1, 1
+	addi $a2, $a2, 4
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a1, $a1, 2
+	addi $a2, $a2, 4
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	li $a3, 1
+	li $t5, 5
+	sw, $t5, 16($sp)
+	jal drawInfoRect
+
 	lw $ra,  0($sp) 
 	addi $sp, $sp, 4
 	jr $ra
@@ -1724,6 +1999,57 @@ drawO:
 	move $t0, $a0
 	move $t1, $a1
 	move $t2, $a2
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a2, $a2, 1
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a2, $a2, 2
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a2, $a2, 3
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a2, $a2, 4
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a1, $a1, 1
+	jal setAtInfoPos
+	
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a1, $a1, 1
+	addi $a2, $a2, 4
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a1, $a1, 2
+	li $a3, 1
+	li $t5, 5
+	sw, $t5, 16($sp)
+	jal drawInfoRect
 
 	lw $ra,  0($sp) 
 	addi $sp, $sp, 4
@@ -1736,6 +2062,46 @@ drawV:
 	move $t1, $a1
 	move $t2, $a2
 
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a2, $a2, 1
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a2, $a2, 2
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a1, $a1, 1
+	addi $a2, $a2, 3
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a1, $a1, 1
+	addi $a2, $a2, 4
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a1, $a1, 2
+	li $a3, 1
+	li $t5, 3
+	sw, $t5, 16($sp)
+	jal drawInfoRect
+
 	lw $ra,  0($sp) 
 	addi $sp, $sp, 4
 	jr $ra
@@ -1747,6 +2113,48 @@ drawR:
 	move $t1, $a1
 	move $t2, $a2
 
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a1, $a1, 1
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a1, $a1, 1
+	addi $a2, $a2, 3
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a1, $a1, 2
+	addi $a2, $a2, 1
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a1, $a1, 2
+	addi $a2, $a2, 2
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a1, $a1, 2
+	addi $a2, $a2, 4
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	li $a3, 1
+	li $t5, 5
+	sw, $t5, 16($sp)
+	jal drawInfoRect
+	
 	lw $ra,  0($sp) 
 	addi $sp, $sp, 4
 	jr $ra
@@ -1757,6 +2165,47 @@ drawP:
 	move $t0, $a0
 	move $t1, $a1
 	move $t2, $a2
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a1, $a1, 1
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a1, $a1, 1
+	addi $a2, $a2, 2
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a1, $a1, 2
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a1, $a1, 2
+	addi $a2, $a2, 1
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a1, $a1, 2
+	addi $a2, $a2, 2
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	li $a3, 1
+	li $t5, 5
+	sw, $t5, 16($sp)
+	jal drawInfoRect
 
 	lw $ra,  0($sp) 
 	addi $sp, $sp, 4
@@ -1769,9 +2218,239 @@ drawT:
 	move $t1, $a1
 	move $t2, $a2
 
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a1, $a1, 2
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a1, $a1 1
+	li $a3, 1
+	li $t5, 5
+	sw, $t5, 16($sp)
+	jal drawInfoRect
+
 	lw $ra,  0($sp) 
 	addi $sp, $sp, 4
 	jr $ra
+
+drawS:
+	addi $sp, $sp, -4 
+ 	sw $ra, 0($sp) # Push $ra to stack
+	move $t0, $a0
+	move $t1, $a1
+	move $t2, $a2
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a1, $a1, 1
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a1, $a1, 2
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a2, $a2, 1
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a2, $a2, 2
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a1, $a1, 1
+	addi $a2, $a2, 2
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a1, $a1, 2
+	addi $a2, $a2, 2
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a1, $a1, 2
+	addi $a2, $a2, 3
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a1, $a1, 2
+	addi $a2, $a2, 4
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a1, $a1, 1
+	addi $a2, $a2, 4
+	jal setAtInfoPos
+
+	move $a0, $t0
+	move $a1, $t1
+	move $a2, $t2
+	addi $a2, $a2, 4
+	jal setAtInfoPos
+
+	lw $ra,  0($sp) 
+	addi $sp, $sp, 4
+	jr $ra
+
+
+gameOverScreen:
+	lw $a0, text1Color
+	li $a1, 8
+	li $a2, 7
+	jal drawG
+
+	lw $a0, text1Color
+	li $a1, 12
+	li $a2, 7
+	jal drawA
+
+	lw $a0, text1Color
+	li $a1, 16
+	li $a2, 7
+	jal drawM
+
+	lw $a0, text1Color
+	li $a1, 22
+	li $a2, 7
+	jal drawE
+
+	lw $a0, text1Color
+	li $a1, 9
+	li $a2, 13
+	jal drawO
+
+	lw $a0, text1Color
+	li $a1, 13
+	li $a2, 13
+	jal drawV
+
+	lw $a0, text1Color
+	li $a1, 17
+	li $a2, 13
+	jal drawE
+
+	lw $a0, text1Color
+	li $a1, 21
+	li $a2, 13
+	jal drawR
+
+	lw $a0, text2Color
+	li $a1, 4
+	li $a2, 19
+	jal drawP
+
+	lw $a0, text2Color
+	li $a1, 8
+	li $a2, 19
+	jal drawR
+
+	lw $a0, text2Color
+	li $a1, 12
+	li $a2, 19
+	jal drawE
+
+	lw $a0, text2Color
+	li $a1, 16
+	li $a2, 19
+	jal drawS
+
+	lw $a0, text2Color
+	li $a1, 20
+	li $a2, 19
+	jal drawS
+
+	lw $a0, text2Color
+	li $a1, 25
+	li $a2, 19
+	jal drawA
+
+	lw $a0, text2Color
+	li $a1, 2
+	li $a2, 25
+	jal drawT
+
+	lw $a0, text2Color
+	li $a1, 6
+	li $a2, 25
+	jal drawO
+
+	lw $a0, text2Color
+	li $a1, 12
+	li $a2, 25
+	jal drawR
+
+	lw $a0, text2Color
+	li $a1, 16
+	li $a2, 25
+	jal drawE
+
+	lw $a0, text2Color
+	li $a1, 20
+	li $a2, 25
+	jal drawS
+
+	lw $a0, text2Color
+	li $a1, 24
+	li $a2, 25
+	jal drawE
+
+	lw $a0, text2Color
+	li $a1, 28
+	li $a2, 25
+	jal drawT
+
+	jal draw
+
+	gameEndLoop:
+	lw $t8, 0xffff0000
+	beq $t8, 1, keyboardInputEnd
+	keyboardInputEnd:
+	lw $t2, 0xffff0004
+	bne $t2, 0x61, gameEndLoop
+
+	# Reset Lives
+	la $t0, lives
+	li $t4, 3
+	sw $t4, 0($t0)
+
+	jal clearInfoOverlay
+	jal clearFrog
+	jal clearEntityOverlay
+	jal clearVictoryOverlay
+	jal resetFrogPos
+	
+	jal main
 
 Exit:
 	li $v0, 10 # terminate the program
