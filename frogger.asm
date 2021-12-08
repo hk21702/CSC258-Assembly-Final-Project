@@ -14,7 +14,7 @@
 #
 # Which milestone is reached in this submission?
 # (See the assignment handout for descriptions of the milestones)
-# - Milestone 4
+# - Milestone 5
 #
 # Which approved additional features have been implemented?
 # (See the assignment handout for the list of additional features)
@@ -22,7 +22,9 @@
 # 2. Death Animation
 # 3. Game Over/Reset Screen
 # 4. Life Counter
-#
+# 5. Have objects in different rows move at different speeds.
+# 6. (hard) Add sound effects for movement, collisions, game end and reaching the goal area.
+# 
 # Any additional information that the TA needs to know:
 # - MARS likes to crash if you hold down a button. This seems to be an issue with MARS
 # - If one tries enters the goal region but the spot is already occupied or partially occupied, frog will reset without life penalty but no gain in score. This is intentional.
@@ -70,11 +72,26 @@ cars1State: .space 4
 cars2State: .space 4
 logs1State: .space 4
 logs2State: .space 4
-frameDelay: .word 25
-frameCounter: .word 0
+frameDelayC1: .word 25
+frameDelayC2: .word 15
+frameDelayL1: .word 20
+frameDelayL2: .word 10
+frameCounterC1: .word 0
+frameCounterC2: .word 0
+frameCounterL1: .word 0
+frameCounterL2: .word 0
 shiftIntervalMax: .word 5
 shiftIntervalMin: .word 2
+## Sound ##
+movementI: .word 9 #8-15
+movementS: .word 72
+deathI: .word 32
+deathS: .word 55
+scoreI: .word 9
+scoreS: .word 100
 ## Other ##
+tmp: .word 0
+soundVolume: .word 60 #0-127
 displayAddress: .word 0x10008000 #Just use $gp
 displayWidth: .word 32 # Width of display
 displayHeight: .word 32 # Height of display
@@ -90,31 +107,76 @@ main:
 	jal initLogs1
 	jal initLogs2
 	jal initShifters
-	lw $a0 text1Color
-	li $a1, 0
-	li $a2, 0
+
 	jal updateHeartDisplay
-	
+
 	gameLoop:
 	# Tick framecounter
-	la $t0, frameCounter
+	la $t0, frameCounterL1
+	lw $t4, 0($t0)
+	addi $t4, $t4, 1
+	sw $t4, 0($t0)
+
+	la $t0, frameCounterL2
+	lw $t4, 0($t0)
+	addi $t4, $t4, 1
+	sw $t4, 0($t0)
+
+	la $t0, frameCounterC1
+	lw $t4, 0($t0)
+	addi $t4, $t4, 1
+	sw $t4, 0($t0)
+
+	la $t0, frameCounterC2
 	lw $t4, 0($t0)
 	addi $t4, $t4, 1
 	sw $t4, 0($t0)
 
 	# Check if hazard change appropriate
-	lw $t0, frameCounter
-	lw $t1, frameDelay
+	lw $t0, frameCounterL1
+	lw $t1, frameDelayL1
+	blt $t0, $t1, shiftL2
+	### Update Hazards ###
+	# Reset frame counter
+	la $t0, frameCounterL1
+	li $t4, 0
+	sw $t4, 0($t0)
+	jal shiftLogs1
+
+	shiftL2:
+	# Check if hazard change appropriate
+	lw $t0, frameCounterL2
+	lw $t1, frameDelayL2
+	blt $t0, $t1, shiftC1
+	### Update Hazards ###
+	# Reset frame counter
+	la $t0, frameCounterL2
+	li $t4, 0
+	sw $t4, 0($t0)
+	jal shiftLogs2
+	
+	shiftC1:
+	# Check if hazard change appropriate
+	lw $t0, frameCounterC1
+	lw $t1, frameDelayC1
+	blt $t0, $t1, shiftC2
+	### Update Hazards ###
+	# Reset frame counter
+	la $t0, frameCounterC1
+	li $t4, 0
+	sw $t4, 0($t0)
+	jal shiftCars1
+	
+	shiftC2:
+	# Check if hazard change appropriate
+	lw $t0, frameCounterC2
+	lw $t1, frameDelayC2
 	blt $t0, $t1, gameLoopEnd
 	### Update Hazards ###
 	# Reset frame counter
-	la $t0, frameCounter
+	la $t0, frameCounterC2
 	li $t4, 0
 	sw $t4, 0($t0)
-
-	jal shiftLogs1
-	jal shiftLogs2
-	jal shiftCars1
 	jal shiftCars2
 
 	gameLoopEnd:
@@ -150,6 +212,14 @@ keyboardInput:
 		lw $t4, 0($t0)
 		li $t1, 3 
 		ble $t4, $t1, wExit
+
+		lw $a0 movementS
+		li $a1, 120
+		lw $a2, movementI
+		li $a3, 100 
+		li $v0,31
+		syscall
+
 		addi $t4, $t4, -4
 		sw $t4, 0($t0)
 		wExit:
@@ -163,6 +233,14 @@ keyboardInput:
 		lw $t4, 0($t0)
 		li $t1, 0 
 		ble $t4, $t1, aExit
+
+		lw $a0 movementS
+		li $a1, 120
+		lw $a2, movementI
+		li $a3, 100 
+		li $v0,31
+		syscall
+
 		addi $t4, $t4, -1
 		sw $t4, 0($t0)
 		aExit:
@@ -180,6 +258,14 @@ keyboardInput:
 		subi $t2, $t2, 1
 		sub $t1, $t1, $t2
 		bge $t4, $t1, sExit
+
+		lw $a0 movementS
+		li $a1, 120
+		lw $a2, movementI
+		li $a3, 100 
+		li $v0,31
+		syscall
+
 		addi $t4, $t4, 4
 		sw $t4, 0($t0)
 		sExit:
@@ -195,6 +281,13 @@ keyboardInput:
 		lw $t2, frogWidth
 		sub $t1, $t1, $t2
 		bge $t4, $t1, dExit
+
+		lw $a0 movementS
+		li $a1, 120
+		lw $a2, movementI
+		li $v0,31
+		syscall
+
 		addi $t4, $t4, 1
 		sw $t4, 0($t0)
 		dExit:
@@ -912,10 +1005,13 @@ shiftLogs1:
 	li, $t2, 4 # Set height
 
 	addi $sp, $sp, -4 
- 	sw $t0, 0($sp) # Push $t0 to stack
+	
+	la $t1, tmp 
+	sw $t0, 0($t1) # Push $t0 to tmp register
+	
 	sw, $t2, 16($sp) # Load height into stack
 	jal drawSetRect
-	lw $t0,  0($sp) # Load $t0 from stack
+	lw $t0,  tmp # Load $t0 from register
 	addi $sp, $sp, 4
 
 	addi $t0, $t0, 1 # Increment counter
@@ -1037,10 +1133,13 @@ shiftLogs2:
 	li, $t2, 4 # Set height
 
 	addi $sp, $sp, -4 
- 	sw $t0, 0($sp) # Push $t0 to stack
+
+	la $t1, tmp 
+	sw $t0, 0($t1) # Push $t0 to tmp register
+
 	sw, $t2, 16($sp) # Load height into stack
 	jal drawSetRect
-	lw $t0,  0($sp) # Load $t0 from stack
+	lw $t0,  tmp # Load $t0 from tmp register
 	addi $sp, $sp, 4
 
 	addi $t0, $t0, -1 # Increment counter
@@ -1159,10 +1258,11 @@ shiftCars1:
 	li, $t2, 4 # Set height
 
 	addi $sp, $sp, -4 
- 	sw $t0, 0($sp) # Push $t0 to stack
+ 	la $t1, tmp 
+	sw $t0, 0($t1) # Push $t0 to tmp register
 	sw, $t2, 16($sp) # Load height into stack
 	jal drawSetRect
-	lw $t0,  0($sp) # Load $t0 from stack
+	lw $t0,  tmp # Load $t0 from tmp register
 	addi $sp, $sp, 4
 
 	addi $t0, $t0, 1 # Increment counter
@@ -1222,10 +1322,11 @@ shiftCars2:
 	li, $t2, 4 # Set height
 
 	addi $sp, $sp, -4 
- 	sw $t0, 0($sp) # Push $t0 to stack
+ 	la $t1, tmp 
+	sw $t0, 0($t1) # Push $t0 to tmp register
 	sw, $t2, 16($sp) # Load height into stack
 	jal drawSetRect
-	lw $t0,  0($sp) # Load $t0 from stack
+	lw $t0,  tmp # Load $t0 from stack
 	addi $sp, $sp, 4
 
 	addi $t0, $t0, -1 # Increment counter
@@ -1263,23 +1364,29 @@ death:
 		addi $t4, $t4, -1
 		sw $t4, 0($t0)
 
+		jal updateHeartDisplay
+
+		lw $t4, lives
+
 		li $t9, 0 # Init counter
 		death_animation_loop:
 		li $t1, 4 # Init max count
 		beq $t9, $t1, death_animation_end
 			# Delay
-			li $v0, 32 
-			lw $a0, msFrameDelay
-			sll $a0, $a0, 4
+			lw $a0 deathS
+			li $a1, 180
+			lw $a2, deathI
+			li $a3, 127
+			li $v0, 33 
 			syscall 
 
 			jal clearFrog
 			jal draw
 
 			# Delay
-			li $v0, 32 
 			lw $a0, msFrameDelay
 			sll $a0, $a0, 4
+			li $v0, 32
 			syscall 
 
 			jal drawFrog
@@ -1288,9 +1395,17 @@ death:
 			addi $t9, $t9, 1
 			j death_animation_loop
 		death_animation_end:
+		# Ignore extra keystrokes
+		li $t8, 0
+		sw $t0, 0xffff0004
+		lw $t2, 0xffff0004
 		# Skip reset if no more lives
 		beq $t4, 0, gameOverScreen
 		jal resetFrogPos
+		# Ignore extra keystrokes
+		li $t8, 0
+		lw $t8, 0xffff0000
+		lw $t2, 0xffff0004
 
 		deathEnd:
 		lw $ra,  0($sp) 
@@ -1422,7 +1537,30 @@ checkVictory:
 	move $a2, $t2
 	jal setAtVictoryPos
 
+	# Delay
+	li $a0 70
+	li $a1, 200
+	lw $a2, movementI
+	li $a3, 127
+	li $v0, 33 
+	syscall
 
+	# Delay
+	li $a0 78
+	li $a1, 200
+	lw $a2, movementI
+	li $a3, 127
+	li $v0, 33 
+	syscall 
+
+	# Delay
+	li $a0 78
+	li $a1, 200
+	lw $a2, movementI
+	li $a3, 127
+	li $v0, 33 
+	syscall 
+	
 	skipVictory:
 	jal resetFrogPos
 	noVictory:
@@ -1546,10 +1684,11 @@ collisionCheck:
 	# $a1: xPos (Top left corner)
 	# $a2: yPos (Top left corner)
 	# $a3: width
-	# $16($sp): height
+	# $0($sp): height
 	# returns none
 drawInfoRect:
-	lw $t5, 16($sp) # Load height from stack
+	lw $t5, 0($sp) # Load height from stack
+	addiu $sp, $sp, 4
 	lw $t8, displayWidth # Load displayWidth
 	lw $t7, displayHeight # Load displayHeight
  	
@@ -1647,7 +1786,8 @@ clearInfoOverlay:
 	li $a2, 0
 	lw $a3, displayWidth
 	lw $t1, displayHeight
-	sw, $t1, 16($sp)
+	addi $sp, $sp, -4 
+	sw, $t1, 0($sp)
 	jal drawInfoRect
 
 	lw $ra,  0($sp) # Load $ra from stack
@@ -1988,7 +2128,8 @@ drawE:
 	move $a2, $t2
 	li $a3, 1
 	li $t5, 5
-	sw, $t5, 16($sp)
+	addi $sp, $sp, -4 
+	sw, $t5, 0($sp)
 	jal drawInfoRect
 
 	lw $ra,  0($sp) 
@@ -2050,7 +2191,8 @@ drawO:
 	addi $a1, $a1, 2
 	li $a3, 1
 	li $t5, 5
-	sw, $t5, 16($sp)
+	addi $sp, $sp, -4 
+	sw, $t5, 0($sp)
 	jal drawInfoRect
 
 	lw $ra,  0($sp) 
@@ -2101,7 +2243,8 @@ drawV:
 	addi $a1, $a1, 2
 	li $a3, 1
 	li $t5, 3
-	sw, $t5, 16($sp)
+	addi $sp, $sp, -4 
+	sw, $t5, 0($sp)
 	jal drawInfoRect
 
 	lw $ra,  0($sp) 
@@ -2154,7 +2297,8 @@ drawR:
 	move $a2, $t2
 	li $a3, 1
 	li $t5, 5
-	sw, $t5, 16($sp)
+	addi $sp, $sp, -4 
+	sw, $t5, 0($sp)
 	jal drawInfoRect
 	
 	lw $ra,  0($sp) 
@@ -2206,7 +2350,8 @@ drawP:
 	move $a2, $t2
 	li $a3, 1
 	li $t5, 5
-	sw, $t5, 16($sp)
+	addi $sp, $sp, -4 
+	sw, $t5, 0($sp)
 	jal drawInfoRect
 
 	lw $ra,  0($sp) 
@@ -2237,7 +2382,8 @@ drawT:
 	addi $a1, $a1 1
 	li $a3, 1
 	li $t5, 5
-	sw, $t5, 16($sp)
+	addi $sp, $sp, -4 
+	sw, $t5, 0($sp)
 	jal drawInfoRect
 
 	lw $ra,  0($sp) 
@@ -2366,6 +2512,42 @@ gameOverScreen:
 	li $a1, 21
 	li $a2, 13
 	jal drawR
+
+	jal draw
+
+	# Delay
+	li $a0 47
+	li $a1, 250
+	lw $a2, deathI
+	li $a3, 127
+	li $v0, 33 
+	syscall
+
+	li $a0 150
+	li $v0, 32 
+	syscall 
+
+	# Delay
+	li $a0 39
+	li $a1, 250
+	lw $a2, deathI
+	li $a3, 127
+	li $v0, 33 
+	syscall
+
+	li $a0 150
+	li $v0, 32 
+	syscall 
+
+	# Delay
+	li $a0 39
+	li $a1, 250
+	lw $a2, deathI
+	li $a3, 127
+	li $v0, 33 
+	syscall 
+
+	# Press line
 
 	lw $a0, text2Color
 	li $a1, 4
@@ -2571,6 +2753,7 @@ drawHeart:
 	lw $ra,  0($sp) 
 	addi $sp, $sp, 4
 	jr $ra
+
 
 
 Exit:
